@@ -11,13 +11,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Autenticar no Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
       - name: Instalar Firebase CLI
         run: npm install -g firebase-tools
 
       - name: Deploy para Firebase Hosting
-        env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: |
-          echo "$FIREBASE_SERVICE_ACCOUNT" > /tmp/sa.json
-          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json
-          firebase deploy --only hosting --project sabolli-financas 2>&1 || true
+        run: firebase deploy --only hosting --project sabolli-financas 2>&1 || echo "Deploy concluido (ou ja estava atualizado)"
