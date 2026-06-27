@@ -1,5 +1,5 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, signInWithPopup, signOut, GoogleAuthProvider, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getAuth, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, collection, getDocs, doc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 window._fbReady = true;
@@ -22,13 +22,22 @@ let currentUid = null;
 
 window.signInWithGoogle = async () => {
   try {
-    await signInWithPopup(auth, provider);
+    const btn = document.getElementById('btn-google-login');
+    if (btn) btn.textContent = 'Aguarde...';
+    await signInWithRedirect(auth, provider);
   } catch(e) {
     if (window.toast) window.toast('Erro ao entrar: ' + (e.code || e.message), 'error');
   }
 };
 
+window.skipLogin = () => {
+  localStorage.setItem('sabolli_skip_login', '1');
+  hideLoginOverlay();
+  if (window._startApp) window._startApp();
+};
+
 window.signOutUser = async () => {
+  localStorage.removeItem('sabolli_skip_login');
   await signOut(auth);
   location.reload();
 };
@@ -55,6 +64,11 @@ async function loadFromCloud(uid) {
 }
 
 function showLoginOverlay() {
+  if (localStorage.getItem('sabolli_skip_login') === '1') {
+    hideLoginOverlay();
+    if (window._startApp) window._startApp();
+    return;
+  }
   const el = document.getElementById('login-overlay');
   if (el) el.style.display = 'flex';
 }
@@ -75,9 +89,19 @@ function updateUserUI(user) {
 
 let visibilityListenerAdded = false;
 
+// Trata o retorno após o redirect do Google
+getRedirectResult(auth).then(result => {
+  if (result && result.user) {
+    // Login via redirect bem-sucedido — onAuthStateChanged cuida do resto
+  }
+}).catch(e => {
+  if (window.toast) window.toast('Erro no login Google: ' + (e.code || e.message), 'error');
+});
+
 onAuthStateChanged(auth, async user => {
   if (user) {
     currentUid = user.uid;
+    localStorage.removeItem('sabolli_skip_login');
     hideLoginOverlay();
     updateUserUI(user);
     await loadFromCloud(currentUid);

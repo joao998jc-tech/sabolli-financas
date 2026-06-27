@@ -1,4 +1,4 @@
-const CACHE = 'sabolli-v12';
+const CACHE = 'sabolli-v13';
 // Arquivos que NUNCA devem vir do cache — sempre busca a versão mais recente
 const NETWORK_ONLY = ['app.js', 'index.html', './app.js', './index.html', '/app.js', '/index.html'];
 // Arquivos estáticos que podem ser cacheados
