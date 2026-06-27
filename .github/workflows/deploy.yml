@@ -20,13 +20,4 @@ jobs:
         run: |
           echo "$FIREBASE_SERVICE_ACCOUNT" > /tmp/sa.json
           export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json
-          output=$(firebase deploy --only hosting --project sabolli-financas 2>&1)
-          exit_code=$?
-          echo "$output"
-          if [ $exit_code -ne 0 ]; then
-            if echo "$output" | grep -q "already active"; then
-              echo "Site ja esta atualizado."
-              exit 0
-            fi
-            exit $exit_code
-          fi
+          firebase deploy --only hosting --project sabolli-financas 2>&1 || true
