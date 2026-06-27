@@ -2930,6 +2930,22 @@ function clearFicha() {
   });
 }
 
+// ===== ATUALIZAR APP =====
+function forceUpdate() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(regs => {
+      regs.forEach(r => r.unregister());
+      caches.keys().then(keys => {
+        Promise.all(keys.map(k => caches.delete(k))).then(() => {
+          window.location.reload(true);
+        });
+      });
+    });
+  } else {
+    window.location.reload(true);
+  }
+}
+
 // ===== INIT =====
 function initApp() {
   seedDemoDataIfEmpty();
