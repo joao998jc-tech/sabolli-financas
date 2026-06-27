@@ -385,7 +385,8 @@ const pageTitles = {
   'stock-moves':'Movimentação de Estoque','new-purchase':'Nova Compra',purchases:'Histórico de Compras',
   inputs:'Insumos',transactions:'Lançamentos Financeiros',extract:'Extrato',accounts:'Contas e Cartões',
   cmv:'CMV',ticket:'Ticket Médio',goals:'Metas',categories:'Categorias',delivery:'Taxa de Entrega',
-  company:'Dados da Empresa',suppliers:'Fornecedores',planning:'Planejamento Financeiro'
+  company:'Dados da Empresa',suppliers:'Fornecedores',planning:'Planejamento Financeiro',
+  'ficha-tecnica':'Ficha Técnica'
 };
 
 function updateHeader() {
@@ -431,6 +432,7 @@ function renderPage(c, s) {
   if (s==='resellers') return renderResellers(c);
   if (s==='suppliers') return renderSuppliers(c);
   if (s==='planning') return renderPlanning(c);
+  if (s==='ficha-tecnica') return renderFichaTecnica(c);
   c.innerHTML = '<div style="padding:40px;text-align:center;color:#94A3B8">Em desenvolvimento...</div>';
 }
 
@@ -1008,9 +1010,14 @@ function renderProducts(c) {
       <thead><tr><th>#</th><th>Nome</th><th>Categoria</th><th>Preço</th><th>Custo</th><th>Margem</th><th></th></tr></thead>
       <tbody>${products.map(p=>{
         const margem = p.price>0 ? ((p.price-p.cost)/p.price*100).toFixed(1) : 0;
+        const fichas = loadData('sabolli_fichas')||{};
+        const hasFicha = !!fichas[p.id];
         return `<tr><td>${p.id}</td><td><strong>${p.name}</strong></td><td>${p.category}</td><td>${fmt(p.price)}</td><td>${fmt(p.cost)}</td>
           <td><span style="color:${margem>40?'#10B981':'#F97316'};font-weight:700">${margem}%</span></td>
-          <td><button class="btn-danger" onclick="deleteProduct(${p.id})">🗑</button></td></tr>`;
+          <td style="white-space:nowrap;display:flex;gap:4px">
+            <button onclick="openFicha(${p.id})" style="padding:4px 8px;border-radius:8px;border:1.5px solid ${hasFicha?'#10B981':'#DBEAFE'};background:${hasFicha?'#F0FDF4':'#EFF6FF'};color:${hasFicha?'#065F46':'#2563EB'};font-size:11px;font-weight:700;cursor:pointer" title="Ficha Técnica">📋 Ficha</button>
+            <button class="btn-danger" onclick="deleteProduct(${p.id})">🗑</button>
+          </td></tr>`;
       }).join('')}</tbody>
     </table></div>
   </div>`;
@@ -1039,6 +1046,11 @@ function deleteProduct(id) {
   });
 }
 
+function openFicha(productId) {
+  window._fichaProdId = productId;
+  navigateTo('ficha-tecnica');
+}
+
 // ===== ESTOQUE =====
 function renderStockMgmt(c) {
   const stock = loadData('sabolli_stock')||[];
@@ -1049,15 +1061,55 @@ function renderStockMgmt(c) {
       <button class="btn-outline" onclick="navigateTo('stock-moves')">+ Movimentação</button>
     </div>
     <div style="overflow-x:auto"><table class="mini-table">
-      <thead><tr><th>#</th><th>Insumo</th><th>Categoria</th><th>Qtd.</th><th>Un.</th><th>Mínimo</th><th>Custo</th><th>Status</th></tr></thead>
+      <thead><tr><th>#</th><th>Insumo</th><th>Categoria</th><th>Qtd.</th><th>Un.</th><th>Mín.</th><th>Custo/Un.</th><th>Status</th><th></th></tr></thead>
       <tbody>${stock.map(s=>`<tr>
         <td>${s.id}</td><td><strong>${s.name}</strong></td><td>${s.category}</td>
         <td style="color:${s.qty<s.min?'#EF4444':'#1E293B'};font-weight:700">${s.qty}</td>
         <td>${s.unit}</td><td>${s.min}</td><td>${fmt(s.cost)}</td>
         <td><span class="status-badge ${s.qty<s.min?'status-pendente':'status-pago'}">${s.qty<s.min?'⚠ Alerta':'OK'}</span></td>
+        <td><button class="btn-danger" onclick="quickRemoveStock(${s.id},'${s.name.replace(/'/g,"\\'")}','${s.unit}')" style="padding:4px 9px;font-size:12px;white-space:nowrap">− Remover</button></td>
       </tr>`).join('')}</tbody>
     </table></div>
   </div>`;
+}
+
+function quickRemoveStock(id, name, unit) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML = `<div style="background:#fff;border-radius:18px;padding:26px 22px;max-width:320px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+    <div style="font-size:15px;font-weight:700;color:#1E293B;margin-bottom:16px">Remover de: <strong>${name}</strong></div>
+    <div style="margin-bottom:10px">
+      <label style="font-size:12px;font-weight:600;color:#64748B;display:block;margin-bottom:4px">Quantidade (${unit})</label>
+      <input id="qr-qty" type="number" step="0.01" min="0.01" placeholder="0" style="width:100%;padding:10px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:15px;font-weight:700;box-sizing:border-box">
+    </div>
+    <div style="margin-bottom:16px">
+      <label style="font-size:12px;font-weight:600;color:#64748B;display:block;margin-bottom:4px">Motivo</label>
+      <input id="qr-reason" type="text" placeholder="Ex: Uso, Perda, Vencimento..." style="width:100%;padding:10px;border:1.5px solid #E2E8F0;border-radius:10px;font-size:14px;box-sizing:border-box">
+    </div>
+    <div style="display:flex;gap:10px">
+      <button id="qr-cancel" style="flex:1;padding:12px;border-radius:12px;border:1.5px solid #E2E8F0;background:#fff;font-size:14px;font-weight:600;cursor:pointer;color:#64748B">Cancelar</button>
+      <button id="qr-ok" style="flex:1;padding:12px;border-radius:12px;border:none;background:#EF4444;color:#fff;font-size:14px;font-weight:700;cursor:pointer">Remover</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#qr-cancel').onclick = () => overlay.remove();
+  overlay.querySelector('#qr-ok').onclick = () => {
+    const qty = Number(overlay.querySelector('#qr-qty').value);
+    const reason = overlay.querySelector('#qr-reason').value;
+    if (!qty||qty<=0) { toast('Informe a quantidade','error'); return; }
+    const stock = loadData('sabolli_stock')||[];
+    const item = stock.find(s=>s.id===id);
+    if (!item) { overlay.remove(); return; }
+    if (item.qty < qty) { toast('Estoque insuficiente ('+item.qty+' '+unit+')','error'); return; }
+    item.qty = Math.round((item.qty - qty)*1000)/1000;
+    saveData('sabolli_stock', stock);
+    const moves = loadData('sabolli_stock_moves')||[];
+    moves.unshift({ id:nextId(moves), date:todayStr(), itemId:id, itemName:name, type:'saída', qty, unit, reason:reason||'Remoção manual' });
+    saveData('sabolli_stock_moves', moves);
+    overlay.remove();
+    toast(`${qty} ${unit} removido(s) de ${name}`);
+    navigateTo('stock-mgmt');
+  };
 }
 
 // ===== MOVIMENTAÇÃO DE ESTOQUE =====
@@ -1182,8 +1234,12 @@ function deleteInput(id) {
 }
 
 // ===== NOVA COMPRA =====
+let purchaseItems = [];
+
 function renderNewPurchase(c) {
+  purchaseItems = [];
   const suppliers = loadData('sabolli_suppliers')||[];
+  const stock = loadData('sabolli_stock')||[];
   const supOptions = suppliers.length>0
     ? suppliers.map(s=>`<option value="${s.name}">${s.name}</option>`).join('')
     : '';
@@ -1204,33 +1260,154 @@ function renderNewPurchase(c) {
           <select id="pur-status" class="form-select"><option>Pago</option><option>Pendente</option></select>
         </div>
       </div>
-      <div class="form-group"><label class="form-label">Itens Comprados</label><textarea id="pur-items" class="form-textarea" rows="3" placeholder="Ex: Farinha 20kg, Ovos 100un, Manteiga 5kg..."></textarea></div>
-      <div class="form-group"><label class="form-label">Valor Total (R$)</label><input id="pur-total" class="form-input" type="number" step="0.01" placeholder="0,00"></div>
       <div class="form-group"><label class="form-label">Observações</label><textarea id="pur-obs" class="form-textarea" rows="2" placeholder="Observações..."></textarea></div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-title">📦 Adicionar Itens da Compra</div>
+      <div class="form-group"><label class="form-label">Insumo</label>
+        <select id="pur-item-sel" class="form-select" onchange="onPurItemChange()">
+          <option value="">— Selecionar insumo —</option>
+          ${stock.map(s=>`<option value="${s.id}" data-unit="${s.unit}" data-cost="${s.cost}">${s.name} (${s.unit})</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label" id="pur-item-qty-label">Qtd. comprada</label><input id="pur-item-qty" class="form-input" type="number" step="0.001" min="0" placeholder="0" oninput="calcPurItemCost()"></div>
+        <div class="form-group"><label class="form-label">Total pago (R$)</label><input id="pur-item-total" class="form-input" type="number" step="0.01" min="0" placeholder="0,00" oninput="calcPurItemCost()"></div>
+      </div>
+      <div id="pur-item-unit-cost" style="font-size:13px;color:#2563EB;font-weight:700;margin-bottom:10px;min-height:20px;padding:6px 10px;background:#EFF6FF;border-radius:8px;display:none"></div>
+      <button class="btn-outline" onclick="addPurchaseItem()" style="width:100%;margin-bottom:14px">+ Adicionar Item à Compra</button>
+
+      <div id="pur-items-list"></div>
+
+      <div id="pur-grand-total-row" style="display:none;justify-content:space-between;align-items:center;padding:12px 4px;border-top:2px solid var(--border);margin-top:4px">
+        <span style="font-weight:700;font-size:15px">Total da Compra</span>
+        <span style="font-weight:900;font-size:18px;color:#2563EB" id="pur-grand-total">R$ 0,00</span>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div style="font-size:12px;color:#64748B;margin-bottom:12px;padding:10px;background:#F0FDF4;border-radius:10px;border:1.5px solid #BBF7D0">
+        ✅ Ao salvar, os <strong>custos por unidade</strong> dos insumos serão atualizados automaticamente e as quantidades serão somadas ao estoque.
+      </div>
       <button class="btn-primary" onclick="savePurchase()">💾 Salvar Compra</button>
     </div>
   </div>`;
+}
+
+function onPurItemChange() {
+  const sel = document.getElementById('pur-item-sel');
+  const opt = sel && sel.selectedOptions[0];
+  const unit = opt ? (opt.dataset.unit||'un') : 'un';
+  const label = document.getElementById('pur-item-qty-label');
+  if (label) label.textContent = `Qtd. comprada (${unit})`;
+  calcPurItemCost();
+}
+
+function calcPurItemCost() {
+  const qty = Number(document.getElementById('pur-item-qty').value)||0;
+  const total = Number(document.getElementById('pur-item-total').value)||0;
+  const display = document.getElementById('pur-item-unit-cost');
+  if (!display) return;
+  if (qty>0 && total>0) {
+    const sel = document.getElementById('pur-item-sel');
+    const opt = sel && sel.selectedOptions[0];
+    const unit = opt ? (opt.dataset.unit||'un') : 'un';
+    const unitCost = total/qty;
+    display.style.display = 'block';
+    display.textContent = `Custo por ${unit}: R$ ${unitCost.toLocaleString('pt-BR',{minimumFractionDigits:4,maximumFractionDigits:4})}`;
+  } else {
+    display.style.display = 'none';
+    display.textContent = '';
+  }
+}
+
+function addPurchaseItem() {
+  const sel = document.getElementById('pur-item-sel');
+  const stockId = Number(sel && sel.value);
+  const qty = Number(document.getElementById('pur-item-qty').value)||0;
+  const total = Number(document.getElementById('pur-item-total').value)||0;
+  if (!stockId) { toast('Selecione um insumo','error'); return; }
+  if (qty<=0) { toast('Informe a quantidade','error'); return; }
+  if (total<=0) { toast('Informe o valor pago','error'); return; }
+  const stock = loadData('sabolli_stock')||[];
+  const item = stock.find(s=>s.id===stockId);
+  if (!item) return;
+  const unitCost = total/qty;
+  if (purchaseItems.find(i=>i.stockId===stockId)) { toast('Insumo já adicionado','warning'); return; }
+  purchaseItems.push({ stockId, name:item.name, unit:item.unit, qty, total, unitCost });
+  sel.value='';
+  document.getElementById('pur-item-qty').value='';
+  document.getElementById('pur-item-total').value='';
+  document.getElementById('pur-item-unit-cost').style.display='none';
+  document.getElementById('pur-item-unit-cost').textContent='';
+  const label = document.getElementById('pur-item-qty-label');
+  if (label) label.textContent='Qtd. comprada';
+  renderPurchaseItems();
+}
+
+function removePurchaseItem(idx) {
+  purchaseItems.splice(idx,1);
+  renderPurchaseItems();
+}
+
+function renderPurchaseItems() {
+  const list = document.getElementById('pur-items-list');
+  const totalEl = document.getElementById('pur-grand-total');
+  const totalRow = document.getElementById('pur-grand-total-row');
+  if (!list) return;
+  const grandTotal = purchaseItems.reduce((s,i)=>s+i.total,0);
+  if (totalEl) totalEl.textContent = fmt(grandTotal);
+  if (totalRow) totalRow.style.display = purchaseItems.length>0 ? 'flex' : 'none';
+  if (purchaseItems.length===0) { list.innerHTML=''; return; }
+  list.innerHTML = `<div style="overflow-x:auto"><table class="mini-table" style="margin-bottom:0">
+    <thead><tr><th>Insumo</th><th>Qtd.</th><th>Total Pago</th><th>Custo/Un.</th><th></th></tr></thead>
+    <tbody>${purchaseItems.map((item,i)=>`<tr>
+      <td><strong>${item.name}</strong></td>
+      <td>${item.qty} ${item.unit}</td>
+      <td>${fmt(item.total)}</td>
+      <td style="color:#2563EB;font-weight:700">R$ ${item.unitCost.toLocaleString('pt-BR',{minimumFractionDigits:4,maximumFractionDigits:4})}</td>
+      <td><button class="btn-danger" onclick="removePurchaseItem(${i})" style="padding:3px 8px">×</button></td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
 }
 
 function savePurchase() {
   const supSel = document.getElementById('pur-supplier');
   const supMan = document.getElementById('pur-supplier-manual');
   const supplier = ((supSel&&supSel.tagName==='SELECT' ? (supMan&&supMan.value?supMan.value:supSel.value) : supSel&&supSel.value)||'').trim();
-  const total = Number(document.getElementById('pur-total').value);
   if (!supplier) { toast('Informe o fornecedor','error'); return; }
-  if (!total||total<=0) { toast('Informe o valor total','error'); return; }
+  if (purchaseItems.length===0) { toast('Adicione ao menos 1 item','error'); return; }
+  const total = purchaseItems.reduce((s,i)=>s+i.total,0);
   const date = document.getElementById('pur-date').value||todayStr();
   const status = document.getElementById('pur-status').value;
-  const items = document.getElementById('pur-items').value;
+  const obs = (document.getElementById('pur-obs')||{}).value||'';
+  const itemsDesc = purchaseItems.map(i=>`${i.name} ${i.qty}${i.unit}`).join(', ');
+
+  // Atualiza custo e qty dos insumos no estoque
+  const stock = loadData('sabolli_stock')||[];
+  const moves = loadData('sabolli_stock_moves')||[];
+  purchaseItems.forEach(pi=>{
+    const s = stock.find(x=>x.id===pi.stockId);
+    if (!s) return;
+    s.cost = pi.unitCost;
+    s.qty = Math.round(((s.qty||0) + pi.qty)*1000)/1000;
+    moves.unshift({ id:nextId(moves), date, itemId:s.id, itemName:s.name, type:'entrada', qty:pi.qty, unit:s.unit, reason:`Compra — ${supplier}` });
+  });
+  saveData('sabolli_stock', stock);
+  saveData('sabolli_stock_moves', moves);
+
   const purchases = loadData('sabolli_purchases')||[];
-  purchases.unshift({ id:nextId(purchases), date, supplier, items, total, status });
+  purchases.unshift({ id:nextId(purchases), date, supplier, items:itemsDesc, total, status, obs, purchaseItems: purchaseItems.map(i=>({...i})) });
   saveData('sabolli_purchases', purchases);
+
   if (status==='Pago') {
     const txs = loadData('sabolli_financial_transactions')||[];
     txs.unshift({ id:nextId(txs), date, desc:`Compra — ${supplier}`, type:'saída', value:total, category:'Compras' });
     saveData('sabolli_financial_transactions', txs);
   }
-  toast('Compra salva!');
+  purchaseItems = [];
+  toast('Compra salva! Custos e estoque atualizados.');
   navigateTo('purchases');
 }
 
@@ -2566,6 +2743,191 @@ function saveCompany() {
   s.company_city = document.getElementById('co-city').value;
   saveData('sabolli_settings', s);
   toast('Dados salvos!');
+}
+
+// ===== FICHA TÉCNICA =====
+function renderFichaTecnica(c) {
+  const productId = window._fichaProdId;
+  if (!productId) { navigateTo('products'); return; }
+  const products = loadData('sabolli_products')||[];
+  const product = products.find(p=>p.id===productId);
+  if (!product) { navigateTo('products'); return; }
+  const stock = loadData('sabolli_stock')||[];
+  const fichas = loadData('sabolli_fichas')||{};
+  const ficha = fichas[productId] || { ingredients:[], wastePercent:4 };
+
+  const rawCost = ficha.ingredients.reduce((s,i)=>s+(i.subtotal||0),0);
+  const waste = ficha.wastePercent||4;
+  const totalCost = rawCost * (1 + waste/100);
+
+  const ingredientsHtml = ficha.ingredients.length===0
+    ? '<div class="empty-state" style="padding:20px"><div class="empty-icon">🧂</div><p>Nenhum ingrediente adicionado</p></div>'
+    : `<div style="overflow-x:auto"><table class="mini-table">
+        <thead><tr><th>Ingrediente</th><th>Qtd.</th><th>Custo/Un.</th><th>Subtotal</th><th></th></tr></thead>
+        <tbody>${ficha.ingredients.map((ing,idx)=>`<tr>
+          <td><strong>${ing.name}</strong></td>
+          <td>${ing.qty} ${ing.unit}</td>
+          <td>R$ ${Number(ing.unitCost).toLocaleString('pt-BR',{minimumFractionDigits:4,maximumFractionDigits:4})}</td>
+          <td style="font-weight:700;color:#2563EB">${fmt(ing.subtotal)}</td>
+          <td><button class="btn-danger" onclick="removeFichaIngredient(${idx})" style="padding:3px 8px">×</button></td>
+        </tr>`).join('')}</tbody>
+      </table></div>`;
+
+  c.innerHTML = `
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+    <button onclick="navigateTo('products')" style="background:none;border:1.5px solid var(--border);border-radius:10px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;color:var(--text-sec)">← Produtos</button>
+    <div>
+      <div style="font-size:17px;font-weight:800;color:var(--text)">${product.name}</div>
+      <div style="font-size:12px;color:#94A3B8">${product.category} · Preço de venda: ${fmt(product.price)}</div>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-title">🧂 Ingredientes da Ficha</div>
+    ${ingredientsHtml}
+  </div>
+
+  <div class="section-card">
+    <div class="section-title">+ Adicionar Ingrediente</div>
+    <div class="form-group"><label class="form-label">Insumo do estoque</label>
+      <select id="fi-sel" class="form-select" onchange="onFiIngredientChange()">
+        <option value="">— Selecionar —</option>
+        ${stock.map(s=>`<option value="${s.id}" data-unit="${s.unit}" data-cost="${s.cost}">${s.name} (${s.unit}) · custo: R$ ${Number(s.cost).toLocaleString('pt-BR',{minimumFractionDigits:4,maximumFractionDigits:4})}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label" id="fi-qty-label">Quantidade usada</label><input id="fi-qty" class="form-input" type="number" step="0.001" min="0" placeholder="0" oninput="calcFiSubtotal()"></div>
+      <div class="form-group"><label class="form-label">Custo unit. (R$)</label><input id="fi-ucost" class="form-input" type="number" step="0.0001" min="0" placeholder="0,0000" oninput="calcFiSubtotal()"></div>
+    </div>
+    <div id="fi-subtotal" style="font-size:13px;font-weight:700;color:#2563EB;margin-bottom:10px;min-height:18px"></div>
+    <button class="btn-outline" onclick="addFichaIngredient()" style="width:100%">+ Adicionar</button>
+  </div>
+
+  <div class="section-card" style="border:2px solid #E2E8F0">
+    <div class="section-title">📊 Resumo de Custo</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;padding:10px;background:#F8FAFC;border-radius:10px">
+        <span style="font-weight:600;color:#64748B">Custo bruto dos ingredientes</span>
+        <span style="font-weight:800;color:#1E293B" id="fi-raw-cost">${fmt(rawCost)}</span>
+      </div>
+      <div style="padding:10px;background:#FFF7ED;border-radius:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-weight:600;color:#92400E">% de perda estimada</span>
+          <div style="display:flex;gap:6px">
+            ${[3,4,5].map(p=>`<button onclick="setFichaWaste(${p})" style="padding:5px 10px;border-radius:8px;border:1.5px solid ${waste===p?'#F97316':'#FED7AA'};background:${waste===p?'#F97316':'#FFF7ED'};color:${waste===p?'#fff':'#92400E'};font-weight:700;font-size:13px;cursor:pointer">${p}%</button>`).join('')}
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between">
+          <span style="font-size:12px;color:#92400E">Acréscimo de perda</span>
+          <span style="font-weight:700;color:#F97316" id="fi-waste-val">+${fmt(rawCost*waste/100)}</span>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:12px 14px;background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border-radius:12px;border:2px solid #BFDBFE">
+        <span style="font-weight:800;font-size:15px;color:#1E3A8A">Custo Total por unidade</span>
+        <span style="font-weight:900;font-size:18px;color:#2563EB" id="fi-total-cost">${fmt(totalCost)}</span>
+      </div>
+      ${product.price>0 && totalCost>0 ? `<div style="display:flex;justify-content:space-between;padding:10px;background:#F0FDF4;border-radius:10px">
+        <span style="font-weight:600;color:#065F46">Margem com este custo</span>
+        <span style="font-weight:800;color:#10B981">${((product.price-totalCost)/product.price*100).toFixed(1)}%</span>
+      </div>` : ''}
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-primary" style="flex:1" onclick="applyFichaCost()">✅ Aplicar custo ao produto</button>
+      <button onclick="clearFicha()" style="padding:10px 14px;border-radius:10px;border:1.5px solid #FCA5A5;background:#FEF2F2;color:#EF4444;font-weight:600;cursor:pointer;font-size:13px">🗑 Limpar</button>
+    </div>
+  </div>`;
+}
+
+function onFiIngredientChange() {
+  const sel = document.getElementById('fi-sel');
+  const opt = sel && sel.selectedOptions[0];
+  if (!opt || !opt.value) return;
+  const unit = opt.dataset.unit||'un';
+  const cost = Number(opt.dataset.cost)||0;
+  const label = document.getElementById('fi-qty-label');
+  if (label) label.textContent = `Quantidade usada (${unit})`;
+  const ucostEl = document.getElementById('fi-ucost');
+  if (ucostEl) ucostEl.value = cost;
+  calcFiSubtotal();
+}
+
+function calcFiSubtotal() {
+  const qty = Number(document.getElementById('fi-qty').value)||0;
+  const ucost = Number(document.getElementById('fi-ucost').value)||0;
+  const el = document.getElementById('fi-subtotal');
+  if (!el) return;
+  if (qty>0 && ucost>0) {
+    el.textContent = `Subtotal: ${fmt(qty*ucost)}`;
+  } else {
+    el.textContent = '';
+  }
+}
+
+function addFichaIngredient() {
+  const productId = window._fichaProdId;
+  const sel = document.getElementById('fi-sel');
+  const stockId = Number(sel && sel.value);
+  const qty = Number(document.getElementById('fi-qty').value)||0;
+  const ucost = Number(document.getElementById('fi-ucost').value)||0;
+  if (!stockId) { toast('Selecione um insumo','error'); return; }
+  if (qty<=0) { toast('Informe a quantidade','error'); return; }
+  if (ucost<=0) { toast('Informe o custo','error'); return; }
+  const stock = loadData('sabolli_stock')||[];
+  const item = stock.find(s=>s.id===stockId);
+  if (!item) return;
+  const fichas = loadData('sabolli_fichas')||{};
+  if (!fichas[productId]) fichas[productId] = { ingredients:[], wastePercent:4 };
+  if (fichas[productId].ingredients.find(i=>i.stockId===stockId)) { toast('Ingrediente já adicionado','warning'); return; }
+  fichas[productId].ingredients.push({ stockId, name:item.name, unit:item.unit, qty, unitCost:ucost, subtotal:qty*ucost });
+  saveData('sabolli_fichas', fichas);
+  toast('Ingrediente adicionado!');
+  navigateTo('ficha-tecnica');
+}
+
+function removeFichaIngredient(idx) {
+  const productId = window._fichaProdId;
+  const fichas = loadData('sabolli_fichas')||{};
+  if (!fichas[productId]) return;
+  fichas[productId].ingredients.splice(idx,1);
+  saveData('sabolli_fichas', fichas);
+  toast('Ingrediente removido');
+  navigateTo('ficha-tecnica');
+}
+
+function setFichaWaste(pct) {
+  const productId = window._fichaProdId;
+  const fichas = loadData('sabolli_fichas')||{};
+  if (!fichas[productId]) fichas[productId] = { ingredients:[], wastePercent:pct };
+  else fichas[productId].wastePercent = pct;
+  saveData('sabolli_fichas', fichas);
+  navigateTo('ficha-tecnica');
+}
+
+function applyFichaCost() {
+  const productId = window._fichaProdId;
+  const fichas = loadData('sabolli_fichas')||{};
+  const ficha = fichas[productId];
+  if (!ficha || ficha.ingredients.length===0) { toast('Adicione ingredientes antes','warning'); return; }
+  const rawCost = ficha.ingredients.reduce((s,i)=>s+(i.subtotal||0),0);
+  const totalCost = rawCost * (1 + (ficha.wastePercent||4)/100);
+  const products = loadData('sabolli_products')||[];
+  const p = products.find(x=>x.id===productId);
+  if (!p) return;
+  p.cost = Math.round(totalCost*100)/100;
+  saveData('sabolli_products', products);
+  toast(`Custo atualizado para ${fmt(p.cost)}!`);
+  navigateTo('ficha-tecnica');
+}
+
+function clearFicha() {
+  customConfirm('Limpar toda a ficha técnica deste produto?', () => {
+    const productId = window._fichaProdId;
+    const fichas = loadData('sabolli_fichas')||{};
+    delete fichas[productId];
+    saveData('sabolli_fichas', fichas);
+    toast('Ficha limpa');
+    navigateTo('ficha-tecnica');
+  });
 }
 
 // ===== INIT =====
