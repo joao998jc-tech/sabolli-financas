@@ -1,20 +1,55 @@
 // SABOLLI FINANÇAS v2.0
 
-// ===== TEMA CLARO/ESCURO =====
+// ===== TEMAS =====
+const APP_THEMES = {
+  azul:    { name:'Azul Claro',    emoji:'💙', dark:false, accent:'#1E3A8A', accentV:'#2563EB', accentL:'#3B82F6', bg:'#F0F6FF', card:'#FFFFFF', border:'#E8EEF8', text:'#1E293B', textS:'#64748B', topbar:'#FFFFFF', inputBg:'#FFFFFF', hover:'#FAFBFF', secBg:'#FFFFFF' },
+  noite:   { name:'Noite Azul',    emoji:'🌙', dark:true,  accent:'#1E3A8A', accentV:'#3B82F6', accentL:'#60A5FA', bg:'#0B1120', card:'#131C2E', border:'#1E2D45', text:'#E8F0FE', textS:'#7B92B3', topbar:'#0F1929', inputBg:'#162033', hover:'#1A2840', secBg:'#131C2E' },
+  verde:   { name:'Verde Natura',  emoji:'🌿', dark:false, accent:'#065F46', accentV:'#10B981', accentL:'#34D399', bg:'#F0FDF4', card:'#FFFFFF', border:'#D1FAE5', text:'#064E3B', textS:'#047857', topbar:'#FFFFFF', inputBg:'#FFFFFF', hover:'#F0FDF4', secBg:'#FFFFFF' },
+  verdeN:  { name:'Floresta',      emoji:'🌲', dark:true,  accent:'#022C22', accentV:'#059669', accentL:'#34D399', bg:'#041C14', card:'#052E1C', border:'#064E3B', text:'#D1FAE5', textS:'#6EE7B7', topbar:'#041C14', inputBg:'#052E1C', hover:'#063324', secBg:'#052E1C' },
+  roxo:    { name:'Roxo Galaxy',   emoji:'🔮', dark:true,  accent:'#4C1D95', accentV:'#7C3AED', accentL:'#A78BFA', bg:'#0F0720', card:'#1A0B35', border:'#2D1654', text:'#F3E8FF', textS:'#C4B5FD', topbar:'#130926', inputBg:'#1F0D3F', hover:'#220F45', secBg:'#1A0B35' },
+  laranja: { name:'Pôr do Sol',    emoji:'🌅', dark:false, accent:'#9A3412', accentV:'#EA580C', accentL:'#FB923C', bg:'#FFF7ED', card:'#FFFFFF', border:'#FED7AA', text:'#431407', textS:'#9A3412', topbar:'#FFFFFF', inputBg:'#FFFFFF', hover:'#FFF7ED', secBg:'#FFFFFF' },
+  rosa:    { name:'Rosa Coral',    emoji:'🌸', dark:false, accent:'#9D174D', accentV:'#DB2777', accentL:'#F472B6', bg:'#FDF2F8', card:'#FFFFFF', border:'#FBCFE8', text:'#500724', textS:'#9D174D', topbar:'#FFFFFF', inputBg:'#FFFFFF', hover:'#FDF2F8', secBg:'#FFFFFF' },
+  grafite: { name:'Grafite',       emoji:'🖤', dark:true,  accent:'#374151', accentV:'#6B7280', accentL:'#9CA3AF', bg:'#111827', card:'#1F2937', border:'#374151', text:'#F9FAFB', textS:'#9CA3AF', topbar:'#1F2937', inputBg:'#111827', hover:'#252F3E', secBg:'#1F2937' },
+  dourado: { name:'Dourado',       emoji:'✨', dark:false, accent:'#78350F', accentV:'#D97706', accentL:'#F59E0B', bg:'#FFFBEB', card:'#FFFFFF', border:'#FDE68A', text:'#451A03', textS:'#92400E', topbar:'#FFFFFF', inputBg:'#FFFFFF', hover:'#FFFBEB', secBg:'#FFFFFF' },
+};
+
 function initTheme() {
-  const saved = localStorage.getItem('sabolli_theme') || 'light';
-  applyTheme(saved);
+  const savedTheme = localStorage.getItem('sabolli_app_theme') || 'azul';
+  applyAppTheme(savedTheme);
+}
+
+function applyAppTheme(themeId) {
+  const t = APP_THEMES[themeId] || APP_THEMES.azul;
+  const r = document.documentElement;
+  r.style.setProperty('--blue-dark',  t.accent);
+  r.style.setProperty('--blue-darker',t.accent);
+  r.style.setProperty('--blue-vivid', t.accentV);
+  r.style.setProperty('--blue-light', t.accentL);
+  r.style.setProperty('--bg',         t.bg);
+  r.style.setProperty('--card',       t.card);
+  r.style.setProperty('--border',     t.border);
+  r.style.setProperty('--text',       t.text);
+  r.style.setProperty('--text-sec',   t.textS);
+  r.style.setProperty('--topbar-bg',  t.topbar);
+  r.style.setProperty('--input-bg',   t.inputBg);
+  r.style.setProperty('--table-hover',t.hover);
+  r.style.setProperty('--section-bg', t.secBg);
+  r.style.setProperty('--chip-bg',    t.inputBg);
+  if (t.dark) document.body.classList.add('dark');
+  else document.body.classList.remove('dark');
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = t.dark ? '☀️' : '🌙';
+  localStorage.setItem('sabolli_app_theme', themeId);
 }
 
 function applyTheme(mode) {
-  if (mode === 'dark') {
-    document.body.classList.add('dark');
-    const btn = document.getElementById('themeToggle');
-    if (btn) btn.textContent = '☀️';
-  } else {
-    document.body.classList.remove('dark');
-    const btn = document.getElementById('themeToggle');
-    if (btn) btn.textContent = '🌙';
+  // compatibilidade: light/dark toggle usa o tema salvo como base
+  const cur = localStorage.getItem('sabolli_app_theme') || 'azul';
+  const t = APP_THEMES[cur];
+  if (mode === 'dark' && !t?.dark) {
+    applyAppTheme('noite');
+  } else if (mode === 'light' && t?.dark) {
+    applyAppTheme('azul');
   }
   localStorage.setItem('sabolli_theme', mode);
 }
@@ -124,7 +159,8 @@ const personalMenu = [
     { id:'planning', label:'Planejamento', icon:'📐' }
   ]},
   { group:'CONFIGURAÇÕES', items:[
-    { id:'categories', label:'Categorias', icon:'🏷️' }
+    { id:'categories', label:'Categorias', icon:'🏷️' },
+    { id:'temas', label:'Temas do App', icon:'🎨' }
   ]}
 ];
 
@@ -386,7 +422,7 @@ const pageTitles = {
   inputs:'Insumos',transactions:'Lançamentos Financeiros',extract:'Extrato',accounts:'Contas e Cartões',
   cmv:'CMV',ticket:'Ticket Médio',goals:'Metas',categories:'Categorias',delivery:'Taxa de Entrega',
   company:'Dados da Empresa',suppliers:'Fornecedores',planning:'Planejamento Financeiro',
-  'ficha-tecnica':'Ficha Técnica'
+  'ficha-tecnica':'Ficha Técnica', temas:'Temas do App'
 };
 
 function updateHeader() {
@@ -427,6 +463,7 @@ function renderPage(c, s) {
   if (s==='ticket') return renderTicket(c);
   if (s==='goals') return renderGoals(c);
   if (s==='categories') return renderCategories(c);
+  if (s==='temas') return renderTemas(c);
   if (s==='delivery') return renderDelivery(c);
   if (s==='company') return renderCompany(c);
   if (s==='resellers') return renderResellers(c);
@@ -471,7 +508,7 @@ function setPeriod(p) {
 // ===== DASHBOARD =====
 function renderDashboard(c) {
   const tabsHtml = `<div class="tabs-row">
-    ${[['business','1','Negócios','Vendas e financeiro'],['personal','2','Gestão Pessoal','Finanças pessoais'],['stock','3','Estoque','Controle de insumos']].map(([id,n,t,s])=>`
+    ${[['personal','1','Gestão Pessoal','Finanças pessoais'],['business','2','Negócios','Vendas e financeiro'],['stock','3','Estoque','Controle de insumos']].map(([id,n,t,s])=>`
     <div class="tab-card${currentTab===id?' active':''}" onclick="switchTab('${id}')">
       <div class="tab-num">${n}</div><div class="tab-text"><span class="tab-title">${t}</span><span class="tab-sub">${s}</span></div>
     </div>`).join('')}
@@ -2726,6 +2763,45 @@ function deletePlanRule(id) {
   });
 }
 
+// ===== TEMAS =====
+function renderTemas(c) {
+  const currentTheme = localStorage.getItem('sabolli_app_theme') || 'azul';
+  const cards = Object.entries(APP_THEMES).map(([id, t]) => {
+    const isActive = id === currentTheme;
+    return `<div onclick="applyAppTheme('${id}');renderTemas(document.getElementById('content'))"
+      style="cursor:pointer;border-radius:16px;overflow:hidden;border:${isActive?'3px solid '+t.accentV:'2px solid '+t.border};box-shadow:${isActive?'0 0 0 2px '+t.accentV+'44':'0 2px 8px rgba(0,0,0,0.08)'};transition:all .2s;transform:${isActive?'scale(1.03)':'scale(1)'}">
+      <div style="background:${t.bg};padding:14px 14px 10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <span style="font-size:20px">${t.emoji}</span>
+          ${isActive?`<span style="background:${t.accentV};color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px">ATIVO</span>`:''}
+        </div>
+        <div style="display:flex;gap:4px;margin-bottom:8px">
+          <div style="flex:1;height:28px;border-radius:6px;background:${t.card};border:1px solid ${t.border}"></div>
+          <div style="flex:1;height:28px;border-radius:6px;background:${t.accentV}"></div>
+          <div style="flex:1;height:28px;border-radius:6px;background:${t.accent}"></div>
+        </div>
+        <div style="background:${t.card};border-radius:8px;padding:8px;border:1px solid ${t.border}">
+          <div style="height:6px;border-radius:3px;background:${t.accentV};width:70%;margin-bottom:5px"></div>
+          <div style="height:5px;border-radius:3px;background:${t.border};width:90%"></div>
+        </div>
+      </div>
+      <div style="background:${t.card};padding:10px 14px;border-top:1px solid ${t.border}">
+        <div style="font-weight:800;font-size:13px;color:${t.text}">${t.name}</div>
+        <div style="font-size:11px;color:${t.textS};margin-top:1px">${t.dark?'Modo escuro':'Modo claro'}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  c.innerHTML = `
+  <div class="section-card">
+    <div class="section-title" style="margin-bottom:6px">🎨 Temas do App</div>
+    <div style="font-size:13px;color:var(--text-sec);margin-bottom:18px">Escolha um tema para personalizar a aparência. Seus dados não são afetados.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px">
+      ${cards}
+    </div>
+  </div>`;
+}
+
 // ===== GERENCIAR CATEGORIAS =====
 function renderCategories(c) {
   const cats = loadCategories();
@@ -3050,9 +3126,7 @@ function initApp() {
   renderSidebar();
   updateHeader();
   renderPage(document.getElementById('content'), currentSection);
-  // Reaplica o ícone do botão de tema após o app montar
-  const savedTheme = localStorage.getItem('sabolli_theme') || 'light';
-  applyTheme(savedTheme);
+  initTheme();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
