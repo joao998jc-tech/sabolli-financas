@@ -1753,15 +1753,19 @@ function renderAccounts(c) {
 
   const cardsHtml = cards.map(card=>{
     const brand = CARD_BRANDS[card.cardBrand]||CARD_BRANDS.outro;
+    const cardColor = card.color || brand.bg;
     const cardCm = getCardReferenceMonth(card.id, today);
     const bill = getCardBillTotal(card.id, cardCm);
     const avail = (card.limite||0)-bill;
     const pct = card.limite>0?Math.min(100,bill/card.limite*100):0;
     const bc = pct>80?'#EF4444':pct>50?'#F59E0B':'#10B981';
-    return `<div class="account-card" style="background:linear-gradient(135deg,${brand.bg},${brand.bg}cc);min-height:170px">
+    return `<div class="account-card" style="background:linear-gradient(135deg,${cardColor},${cardColor}cc);min-height:170px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div class="ac-bank">${card.bank||card.name}</div>
-        <button onclick="deleteAccount(${card.id})" style="background:rgba(255,255,255,0.15);border:none;border-radius:6px;color:#fff;padding:3px 7px;cursor:pointer;font-size:11px">🗑</button>
+        <div style="display:flex;gap:4px">
+          <button onclick="openAccountColorPicker(${card.id},'${cardColor}')" title="Editar cor" style="background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.5);border-radius:6px;color:#fff;padding:3px 7px;cursor:pointer;font-size:11px">🎨</button>
+          <button onclick="deleteAccount(${card.id})" style="background:rgba(255,255,255,0.15);border:none;border-radius:6px;color:#fff;padding:3px 7px;cursor:pointer;font-size:11px">🗑</button>
+        </div>
       </div>
       <div class="ac-name">${card.name}</div>
       <div style="font-size:10px;opacity:0.65;margin-bottom:2px">Fatura ${fmtMonth(cardCm)}</div>
