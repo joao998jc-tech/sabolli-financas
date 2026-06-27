@@ -42,11 +42,20 @@ window.signOutUser = async () => {
   location.reload();
 };
 
-window.syncSaveData = async (key, data) => {
+// Debounce: agrupa escritas em lote a cada 2s para não sobrecarregar o Firestore
+const _syncQueue = {};
+let _syncTimer = null;
+window.syncSaveData = (key, data) => {
   if (!currentUid) return;
-  try {
-    await setDoc(doc(db, 'users', currentUid, 'data', key), { v: data });
-  } catch(e) {}
+  _syncQueue[key] = data;
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(async () => {
+    const entries = Object.entries(_syncQueue);
+    for (const k in _syncQueue) delete _syncQueue[k];
+    for (const [k, v] of entries) {
+      try { await setDoc(doc(db, 'users', currentUid, 'data', k), { v }); } catch(e) {}
+    }
+  }, 2000);
 };
 
 async function loadFromCloud(uid) {

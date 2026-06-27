@@ -519,10 +519,20 @@ function renderDashboard(c) {
   else if (currentTab==='personal') body = renderPersonalDash();
   else if (currentTab==='evolucao') body = renderEvoluçaoDash();
   else body = renderStockDash();
-  c.innerHTML = tabsHtml + body;
+  c.innerHTML = tabsHtml + `<div id="dash-body">${body}</div>`;
 }
 
 function switchTab(t) { currentTab=t; renderPage(document.getElementById('content'),'dashboard'); }
+
+// Re-renderiza apenas o corpo do dashboard de evolução sem refazer tudo
+function refreshEvoDash() {
+  const el = document.getElementById('dash-body');
+  if (el && currentTab === 'evolucao') {
+    el.innerHTML = renderEvoluçaoDash();
+  } else {
+    renderPage(document.getElementById('content'), 'dashboard');
+  }
+}
 
 function renderBusinessDash() {
   const orders = loadData('sabolli_orders')||[];
@@ -2802,7 +2812,7 @@ function renderEvoluçaoDash() {
     ['alimentacao','🥗','Nutrição']
   ];
   const tabsHtml = `<div style="display:flex;gap:4px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;-webkit-overflow-scrolling:touch;scrollbar-width:none">
-    ${tabs.map(([id,em,lb])=>`<button onclick="currentEvoTab='${id}';renderPage(document.getElementById('content'),'dashboard')"
+    ${tabs.map(([id,em,lb])=>`<button onclick="currentEvoTab='${id}';refreshEvoDash()"
       style="flex-shrink:0;padding:8px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;background:${currentEvoTab===id?'var(--blue-vivid)':'var(--bg)'};color:${currentEvoTab===id?'#fff':'var(--text-sec)'};border:1.5px solid ${currentEvoTab===id?'var(--blue-vivid)':'var(--border)'}">${em} ${lb}</button>`).join('')}
   </div>`;
   let body = '';
@@ -2940,13 +2950,13 @@ function saveProgram() {
   saveData('sabolli_active_program', id);
   toast('Programa criado! ✅');
   currentEvoTab = 'treino';
-  renderPage(document.getElementById('content'), 'dashboard');
+  refreshEvoDash();
 }
 
 function setActiveProgram(id) {
   saveData('sabolli_active_program', id);
   currentEvoTab = 'treino';
-  renderPage(document.getElementById('content'), 'dashboard');
+  refreshEvoDash();
 }
 
 function deleteProgram(id) {
@@ -2959,7 +2969,7 @@ function deleteProgram(id) {
   }
   toast('Programa excluído');
   currentEvoTab = 'treino';
-  renderPage(document.getElementById('content'), 'dashboard');
+  refreshEvoDash();
 }
 
 function saveExercise() {
@@ -2978,17 +2988,24 @@ function saveExercise() {
   toast('Exercício adicionado! 💪');
   closeAddExerciseForm();
   currentEvoTab = 'treino';
-  renderPage(document.getElementById('content'), 'dashboard');
+  refreshEvoDash();
 }
 
 function deleteExercise(id) {
   saveData('sabolli_program_exercises', (loadData('sabolli_program_exercises')||[]).filter(e=>e.id!==id));
   toast('Exercício removido');
   currentEvoTab = 'treino';
-  renderPage(document.getElementById('content'), 'dashboard');
+  refreshEvoDash();
 }
 
 // ---- PERSONAGEM SVG ----
+const _svgCache = {};
+function buildCharSVGCached(stage, isFemale, w, h) {
+  const key = `${stage}-${isFemale}-${w}-${h}`;
+  if (!_svgCache[key]) _svgCache[key] = buildCharSVG(stage, isFemale, w, h);
+  return _svgCache[key];
+}
+
 function buildCharSVG(stage, isFemale, displayW, displayH) {
   const VW=70, VH=122, cx=35;
   const skin='#F4A261', hair=isFemale?'#6B3A2A':'#2C1810';
@@ -3075,7 +3092,7 @@ function renderEvoProgress() {
   const charsHtml=[0,1,2,3,4].map(i=>{
     const isActive=i===stage;
     const W=isActive?66:38, H=isActive?130:75;
-    const svg=buildCharSVG(i,isFemale,W,H);
+    const svg=buildCharSVGCached(i,isFemale,W,H);
     const op=i>stage?'0.22':'1';
     return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;opacity:${op};flex-shrink:0">
       ${isActive?`<div style="background:${colors[i]};color:#fff;font-size:8px;font-weight:900;padding:2px 6px;border-radius:6px;letter-spacing:.4px">VOCÊ</div>`:`<div style="height:16px"></div>`}
@@ -3277,7 +3294,7 @@ function toggleExerciseDone(exId) {
   else log[today][exId] = {done:true};
   saveData('sabolli_workout_log', log);
   currentEvoTab = 'check';
-  renderPage(document.getElementById('content'), 'dashboard');
+  refreshEvoDash();
 }
 
 function saveExerciseLog(exId) {
@@ -3297,7 +3314,7 @@ function saveExerciseLog(exId) {
   saveData('sabolli_training_days', days);
   toast('Registrado! 💪');
   currentEvoTab = 'check';
-  renderPage(document.getElementById('content'), 'dashboard');
+  refreshEvoDash();
 }
 
 function saveCardio() {
@@ -3312,17 +3329,7 @@ function saveCardio() {
   saveData('sabolli_training_days', days);
   toast(`${min} min de cardio! 🏃`);
   currentEvoTab = 'check';
-  renderPage(document.getElementById('content'), 'dashboard');
-}
-
-function toggleMobility() {
-  const today = todayStr();
-  const log = loadData('sabolli_mobility_log') || {};
-  log[today] = !log[today];
-  saveData('sabolli_mobility_log', log);
-  toast(log[today] ? 'Mobilidade feita! 🧘' : 'Mobilidade desmarcada');
-  currentEvoTab = 'check';
-  renderPage(document.getElementById('content'), 'dashboard');
+  refreshEvoDash();
 }
 
 function setMobility(val) {
@@ -3332,17 +3339,7 @@ function setMobility(val) {
   saveData('sabolli_mobility_log', log);
   toast(val ? 'Mobilidade feita! 🧘 Bora treinar!' : 'Mobilidade marcada como não feita');
   currentEvoTab = 'check';
-  renderPage(document.getElementById('content'), 'dashboard');
-}
-
-function toggleAbs() {
-  const today = todayStr();
-  const log = loadData('sabolli_abs_log') || {};
-  log[today] = !log[today];
-  saveData('sabolli_abs_log', log);
-  toast(log[today] ? 'Abdominal feito! 💪' : 'Abdominal desmarcado');
-  currentEvoTab = 'check';
-  renderPage(document.getElementById('content'), 'dashboard');
+  refreshEvoDash();
 }
 
 function setAbs(val) {
@@ -3352,7 +3349,7 @@ function setAbs(val) {
   saveData('sabolli_abs_log', log);
   toast(val ? 'Abdominal feito! 💪' : 'Abdominal marcado como não feito');
   currentEvoTab = 'check';
-  renderPage(document.getElementById('content'), 'dashboard');
+  refreshEvoDash();
 }
 
 function setWarmup(exId, val) {
@@ -3363,7 +3360,7 @@ function setWarmup(exId, val) {
   log[today][exId].warmupYes = val;
   saveData('sabolli_workout_log', log);
   currentEvoTab = 'check';
-  renderPage(document.getElementById('content'), 'dashboard');
+  refreshEvoDash();
 }
 
 // ---- ABA CALENDÁRIO ----
@@ -3417,7 +3414,7 @@ function changeEvoMonth(delta) {
   if (m>11){m=0;y++;} if (m<0){m=11;y--;}
   currentEvoFilterMonth=m; currentEvoFilterYear=y;
   currentEvoTab='calendario';
-  renderPage(document.getElementById('content'),'dashboard');
+  refreshEvoDash();
 }
 
 function toggleTrainingDay(dateStr) {
@@ -3425,7 +3422,7 @@ function toggleTrainingDay(dateStr) {
   if (days[dateStr]) delete days[dateStr]; else days[dateStr]=true;
   saveData('sabolli_training_days', days);
   currentEvoTab='calendario';
-  renderPage(document.getElementById('content'),'dashboard');
+  refreshEvoDash();
 }
 
 // ---- ABA HISTÓRICO ----
@@ -3651,7 +3648,7 @@ function saveMeasurements() {
   saveData('sabolli_nutrition_profile',profile);
   toast('Medidas salvas! 📏');
   currentEvoTab='alimentacao';
-  renderPage(document.getElementById('content'),'dashboard');
+  refreshEvoDash();
 }
 
 function saveBmr() {
@@ -3671,7 +3668,7 @@ function saveBmr() {
   saveData('sabolli_nutrition_profile',profile);
   toast('TMB: '+bmr+' kcal · TDEE: '+tdee+' kcal ✓');
   currentEvoTab='alimentacao';
-  renderPage(document.getElementById('content'),'dashboard');
+  refreshEvoDash();
 }
 
 function selectGoal(goalId) {
@@ -3708,11 +3705,7 @@ function saveGoal() {
   saveData('sabolli_nutrition_profile',profile);
   toast('Objetivo e macros salvos! 🎯');
   currentEvoTab='alimentacao';
-  renderPage(document.getElementById('content'),'dashboard');
-}
-
-function toggleMeuTreino() {
-  // legacy compat
+  refreshEvoDash();
 }
 
 // ===== EXERCÍCIOS LEGADOS (removidos, usando sabolli_program_exercises) =====
