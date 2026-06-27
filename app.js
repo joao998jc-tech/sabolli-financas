@@ -45,7 +45,7 @@ const CARD_BRANDS = {
 
 // ===== ESTADO =====
 let currentSection = 'dashboard';
-let currentTab = 'business';
+let currentTab = 'personal';
 let currentPeriod = 'month';
 let orderCart = [];
 let currentBillCardId = null;
