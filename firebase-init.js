@@ -1,8 +1,9 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getAuth, signInWithPopup, signOut, GoogleAuthProvider, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getFirestore, enableIndexedDbPersistence, collection, getDocs, doc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getFirestore, collection, getDocs, doc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 window._fbReady = true;
+if (window._fbStarted) window._fbStarted();
 
 const firebaseConfig = {
   apiKey: "AIzaSyBTJmv-CaNSyYL1mA9HAO-vjL5fUL4vpPc",
@@ -16,9 +17,6 @@ const firebaseConfig = {
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
 const db = getFirestore(fbApp);
-
-enableIndexedDbPersistence(db).catch(() => {});
-
 const provider = new GoogleAuthProvider();
 let currentUid = null;
 
@@ -26,7 +24,7 @@ window.signInWithGoogle = async () => {
   try {
     await signInWithPopup(auth, provider);
   } catch(e) {
-    if (window.toast) window.toast('Erro ao entrar: ' + (e.message || e.code), 'error');
+    if (window.toast) window.toast('Erro ao entrar: ' + (e.code || e.message), 'error');
   }
 };
 
@@ -39,14 +37,12 @@ window.syncSaveData = async (key, data) => {
   if (!currentUid) return;
   try {
     await setDoc(doc(db, 'users', currentUid, 'data', key), { v: data });
-  } catch(e) {
-    // silencioso — dado já está no localStorage
-  }
+  } catch(e) {}
 };
 
-async function loadFromCloud(userId) {
+async function loadFromCloud(uid) {
   try {
-    const snap = await getDocs(collection(db, 'users', userId, 'data'));
+    const snap = await getDocs(collection(db, 'users', uid, 'data'));
     snap.forEach(d => {
       if (d.data().v !== undefined) {
         localStorage.setItem(d.id, JSON.stringify(d.data().v));
@@ -56,6 +52,16 @@ async function loadFromCloud(userId) {
   } catch(e) {
     return false;
   }
+}
+
+function showLoginOverlay() {
+  const el = document.getElementById('login-overlay');
+  if (el) el.style.display = 'flex';
+}
+
+function hideLoginOverlay() {
+  const el = document.getElementById('login-overlay');
+  if (el) el.style.display = 'none';
 }
 
 function updateUserUI(user) {
@@ -70,13 +76,10 @@ function updateUserUI(user) {
 let visibilityListenerAdded = false;
 
 onAuthStateChanged(auth, async user => {
-  const overlay = document.getElementById('login-overlay');
-
   if (user) {
     currentUid = user.uid;
-    if (overlay) overlay.style.display = 'none';
+    hideLoginOverlay();
     updateUserUI(user);
-
     await loadFromCloud(currentUid);
     if (window._startApp) window._startApp();
 
@@ -93,6 +96,6 @@ onAuthStateChanged(auth, async user => {
     }
   } else {
     currentUid = null;
-    if (overlay) overlay.style.display = 'flex';
+    showLoginOverlay();
   }
 });

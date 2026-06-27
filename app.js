@@ -2959,7 +2959,11 @@ function initApp() {
 
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
-  initApp();
+
+  // Firebase chama _startApp após login + sync. Fallback de 4s se Firebase não carregar.
+  window._startApp = initApp;
+  const fbFallback = setTimeout(() => { if (!window._fbReady) initApp(); }, 4000);
+  window._fbStarted = () => clearTimeout(fbFallback);
 
   document.addEventListener('click', e => {
     const panel = document.getElementById('saldoPanel');
