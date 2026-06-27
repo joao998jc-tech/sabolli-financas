@@ -1805,7 +1805,10 @@ function renderAccounts(c) {
     return `<div class="account-card" style="background:linear-gradient(135deg,${c2},${c2}bb)">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div class="ac-bank">${a.bank||a.type}</div>
-        <button onclick="deleteAccount(${a.id})" style="background:rgba(255,255,255,0.15);border:none;border-radius:6px;color:#fff;padding:3px 7px;cursor:pointer;font-size:11px">🗑</button>
+        <div style="display:flex;gap:4px">
+          <button onclick="openAccountColorPicker(${a.id},'${c2}')" title="Editar cor" style="background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.5);border-radius:6px;color:#fff;padding:3px 7px;cursor:pointer;font-size:11px">🎨</button>
+          <button onclick="deleteAccount(${a.id})" style="background:rgba(255,255,255,0.15);border:none;border-radius:6px;color:#fff;padding:3px 7px;cursor:pointer;font-size:11px">🗑</button>
+        </div>
       </div>
       <div class="ac-name">${a.name}</div>
       <div class="ac-balance">${fmt(a.balance||0)}</div>
@@ -2021,6 +2024,45 @@ function deleteAccount(id) {
     toast('Excluído!');
     navigateTo('accounts');
   });
+}
+
+function openAccountColorPicker(id, currentColor) {
+  const existing = document.getElementById('acc-color-picker-popup');
+  if (existing) existing.remove();
+  const presets = [
+    '#1E3A8A','#2563EB','#0EA5E9','#0891B2',
+    '#065F46','#1a6b3c','#10B981','#16A34A',
+    '#6B21A8','#7C3AED','#DB2777','#BE185D',
+    '#991B1B','#DC2626','#D97706','#EA580C',
+    '#334155','#475569','#1C1917','#713F12'
+  ];
+  const popup = document.createElement('div');
+  popup.id = 'acc-color-picker-popup';
+  popup.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5)';
+  popup.innerHTML = `
+    <div style="background:#fff;border-radius:20px;padding:22px;width:min(320px,90vw);box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+      <div style="font-weight:800;font-size:15px;color:#1E293B;margin-bottom:14px">🎨 Cor do cartão</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px">
+        ${presets.map(c=>`<button onclick="changeAccountColor(${id},'${c}')" style="width:44px;height:44px;border-radius:10px;background:${c};border:${c===currentColor?'3px solid #fff':'2px solid transparent'};box-shadow:${c===currentColor?'0 0 0 2px '+c+',0 0 0 4px #fff':'0 1px 4px rgba(0,0,0,0.2)'};cursor:pointer;transition:transform .15s" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform=''"></button>`).join('')}
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <label style="font-size:13px;font-weight:600;color:#475569;flex:1">Cor personalizada:</label>
+        <input type="color" value="${currentColor}" oninput="changeAccountColor(${id},this.value)" style="width:48px;height:36px;border:none;border-radius:8px;cursor:pointer;padding:2px">
+      </div>
+      <button onclick="document.getElementById('acc-color-picker-popup').remove()" style="width:100%;padding:10px;border-radius:12px;background:#F1F5F9;border:none;font-size:14px;font-weight:700;color:#475569;cursor:pointer">Fechar</button>
+    </div>`;
+  popup.addEventListener('click', e => { if (e.target === popup) popup.remove(); });
+  document.body.appendChild(popup);
+}
+
+function changeAccountColor(id, color) {
+  const accounts = loadData('sabolli_accounts')||[];
+  const idx = accounts.findIndex(a => a.id === id);
+  if (idx === -1) return;
+  accounts[idx].color = color;
+  saveData('sabolli_accounts', accounts);
+  document.getElementById('acc-color-picker-popup')?.remove();
+  navigateTo('accounts');
 }
 
 function selectExpenseCard(cardId) {
