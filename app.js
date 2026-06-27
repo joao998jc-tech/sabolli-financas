@@ -1,4 +1,4 @@
-// SABOLLI FINANÇAS v2.0
+﻿// SABOLLI FINANÇAS v2.0
 
 // ===== TEMAS =====
 const APP_THEMES = {
@@ -509,7 +509,7 @@ function setPeriod(p) {
 // ===== DASHBOARD =====
 function renderDashboard(c) {
   const tabsHtml = `<div class="tabs-row">
-    ${[['personal','1','Gestão Pessoal','Finanças pessoais'],['business','2','Negócios','Vendas e financeiro'],['stock','3','Estoque','Controle de insumos'],['evolucao','4','Evolução','Treino e saúde']].map(([id,n,t,s])=>`
+    ${[['personal','1','Gestão Pessoal','Finanças pessoais'],['business','2','Negócios','Vendas e financeiro'],['stock','3','Estoque','Controle de insumos']].map(([id,n,t,s])=>`
     <div class="tab-card${currentTab===id?' active':''}" onclick="switchTab('${id}')">
       <div class="tab-num">${n}</div><div class="tab-text"><span class="tab-title">${t}</span><span class="tab-sub">${s}</span></div>
     </div>`).join('')}
@@ -517,22 +517,11 @@ function renderDashboard(c) {
   let body = '';
   if (currentTab==='business') body = renderBusinessDash();
   else if (currentTab==='personal') body = renderPersonalDash();
-  else if (currentTab==='evolucao') body = renderEvoluçaoDash();
   else body = renderStockDash();
   c.innerHTML = tabsHtml + `<div id="dash-body">${body}</div>`;
 }
 
 function switchTab(t) { currentTab=t; renderPage(document.getElementById('content'),'dashboard'); }
-
-// Re-renderiza apenas o corpo do dashboard de evolução sem refazer tudo
-function refreshEvoDash() {
-  const el = document.getElementById('dash-body');
-  if (el && currentTab === 'evolucao') {
-    el.innerHTML = renderEvoluçaoDash();
-  } else {
-    renderPage(document.getElementById('content'), 'dashboard');
-  }
-}
 
 function renderBusinessDash() {
   const orders = loadData('sabolli_orders')||[];
@@ -988,12 +977,12 @@ function renderCustomers(c) {
         <div class="form-group"><label class="form-label">Nome</label><input id="cust-name" class="form-input" type="text" placeholder="Nome completo"></div>
         <div class="form-group"><label class="form-label">Telefone</label><input id="cust-phone" class="form-input" type="tel" placeholder="(11) 99999-9999"></div>
       </div>
-      <div class="form-group"><label class="form-label">Cidade</label><input id="cust-city" class="form-input" type="text" placeholder="Cidade"></div>
+      <div class="form-group"><label class="form-label">Bairro</label><input id="cust-city" class="form-input" type="text" placeholder="Bairro"></div>
       <div style="display:flex;gap:8px"><button class="btn-primary" style="flex:1" onclick="saveCustomer()">Salvar</button><button class="btn-secondary" onclick="toggleAddCustomer()">Cancelar</button></div>
     </div>
     <input class="input-search" type="text" placeholder="🔍 Buscar cliente..." oninput="filterCustomers(this.value)">
     <div style="overflow-x:auto"><table class="mini-table" id="customers-table">
-      <thead><tr><th>#</th><th>Nome</th><th>Telefone</th><th>Cidade</th><th>Pedidos</th><th></th></tr></thead>
+      <thead><tr><th>#</th><th>Nome</th><th>Telefone</th><th>Bairro</th><th>Pedidos</th><th></th></tr></thead>
       <tbody id="customers-body">${customers.map(custRow).join('')}</tbody>
     </table></div>
   </div>`;
@@ -1808,9 +1797,17 @@ function renderAccounts(c) {
     const avail = (card.limite||0)-bill;
     const pct = card.limite>0?Math.min(100,bill/card.limite*100):0;
     const bc = pct>80?'#EF4444':pct>50?'#F59E0B':'#10B981';
+    const walletLinked = isWalletLinked(card.id);
     return `<div class="account-card" style="background:linear-gradient(135deg,${cardColor},${cardColor}cc);min-height:170px">
+      <button class="nfc-btn${walletLinked?' linked':''}" onclick="showNfcModal(${card.id})" title="${walletLinked?'Abrir Google Carteiras':'Cadastrar no Google Carteiras'}">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8.5 15.5C8.5 13.015 10.515 11 13 11" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          <path d="M6 17.5C6 11.701 10.701 7 16.5 7" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="13" cy="15.5" r="1.5" fill="white"/>
+        </svg>
+      </button>
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div class="ac-bank">${card.bank||card.name}</div>
+        <div class="ac-bank" style="padding-left:38px">${card.bank||card.name}</div>
         <div style="display:flex;gap:4px">
           <button onclick="openAccountColorPicker(${card.id},'${cardColor}')" title="Editar cor" style="background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.5);border-radius:6px;color:#fff;padding:3px 7px;cursor:pointer;font-size:11px">🎨</button>
           <button onclick="deleteAccount(${card.id})" style="background:rgba(255,255,255,0.15);border:none;border-radius:6px;color:#fff;padding:3px 7px;cursor:pointer;font-size:11px">🗑</button>
@@ -1855,9 +1852,17 @@ function renderAccounts(c) {
     const st = accountStats[i];
     const hasInitial = a.initialBalance !== undefined;
     const movNet = st.inAcc - st.outAcc;
+    const walletLinkedAcct = isWalletLinked(a.id);
     return `<div class="account-card" style="background:linear-gradient(135deg,${c2},${c2}bb)">
+      <button class="nfc-btn${walletLinkedAcct?' linked':''}" onclick="showNfcModal(${a.id})" title="${walletLinkedAcct?'Abrir Google Carteiras':'Cadastrar no Google Carteiras'}">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8.5 15.5C8.5 13.015 10.515 11 13 11" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          <path d="M6 17.5C6 11.701 10.701 7 16.5 7" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="13" cy="15.5" r="1.5" fill="white"/>
+        </svg>
+      </button>
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div class="ac-bank">${a.bank||a.type}</div>
+        <div class="ac-bank" style="padding-left:38px">${a.bank||a.type}</div>
         <div style="display:flex;gap:4px">
           <button onclick="openEditAccount(${a.id})" title="Editar" style="background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.5);border-radius:6px;color:#fff;padding:3px 7px;cursor:pointer;font-size:11px">✏️</button>
           <button onclick="openAccountColorPicker(${a.id},'${c2}')" title="Editar cor" style="background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.5);border-radius:6px;color:#fff;padding:3px 7px;cursor:pointer;font-size:11px">🎨</button>
@@ -2075,9 +2080,119 @@ function deleteAccount(id) {
   customConfirm('Excluir esta conta/cartão?', () => {
     saveData('sabolli_accounts', (loadData('sabolli_accounts')||[]).filter(a=>a.id!==id));
     saveData('sabolli_card_expenses', (loadData('sabolli_card_expenses')||[]).filter(e=>e.cardId!==id));
+    const links = loadData('sabolli_wallet_links')||{};
+    delete links[id];
+    saveData('sabolli_wallet_links', links);
     toast('Excluído!');
     navigateTo('accounts');
   });
+}
+
+/* ===== GOOGLE WALLET / NFC ===== */
+const NFC_SVG = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z" fill="rgba(255,255,255,0.1)" stroke="white" stroke-width="1.2"/>
+  <path d="M8.5 15.5C8.5 13.015 10.515 11 13 11" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="M6.5 17.5C6.5 11.977 10.977 7.5 16.5 7.5" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+  <circle cx="13" cy="15" r="1.5" fill="white"/>
+</svg>`;
+
+function isWalletLinked(accountId) {
+  const links = loadData('sabolli_wallet_links')||{};
+  return !!links[accountId];
+}
+
+function setWalletLinked(accountId, value) {
+  const links = loadData('sabolli_wallet_links')||{};
+  links[accountId] = value;
+  saveData('sabolli_wallet_links', links);
+}
+
+function openGoogleWalletApp() {
+  // Tenta abrir o app Google Carteiras no Android; fallback para web
+  const intentUrl = 'intent://pay.google.com#Intent;scheme=https;package=com.google.android.apps.walletnfcrel;end';
+  const webUrl = 'https://pay.google.com';
+  const a = document.createElement('a');
+  a.href = intentUrl;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  try { a.click(); } catch(e) {}
+  document.body.removeChild(a);
+  // Fallback depois de um instante
+  setTimeout(() => { if (document.visibilityState !== 'hidden') window.open(webUrl, '_blank'); }, 1200);
+}
+
+function showNfcModal(accountId) {
+  const existing = document.getElementById('gw-modal-overlay');
+  if (existing) existing.remove();
+
+  const accounts = loadData('sabolli_accounts')||[];
+  const acc = accounts.find(a => a.id === accountId);
+  if (!acc) return;
+
+  const linked = isWalletLinked(accountId);
+  const CARD_BRANDS_REF = typeof CARD_BRANDS !== 'undefined' ? CARD_BRANDS : {};
+  const brand = CARD_BRANDS_REF[acc.cardBrand]||{logo:'',bg:'#334155'};
+  const cardColor = acc.color || brand.bg || '#334155';
+  const displayName = acc.bank ? `${acc.bank} · ${acc.name}` : acc.name;
+
+  if (linked) {
+    // Já cadastrado → abre Google Wallet direto
+    openGoogleWalletApp();
+    toast('Abrindo Google Carteiras…');
+    return;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.id = 'gw-modal-overlay';
+  overlay.className = 'gw-modal-overlay';
+  overlay.innerHTML = `
+    <div class="gw-modal">
+      <div class="gw-modal-title">📲 Pagar por Aproximação</div>
+      <div class="gw-modal-sub">Para pagar por aproximação, seu cartão precisa estar cadastrado no Google Carteiras.</div>
+      <div class="gw-card-preview" style="background:linear-gradient(135deg,${cardColor},${cardColor}cc)">
+        ${NFC_SVG}
+        <div>
+          <div style="font-size:12px;opacity:0.75">${acc.bank||acc.type||''}</div>
+          <div style="font-size:15px">${acc.name}</div>
+        </div>
+      </div>
+      <button class="gw-btn-yes" onclick="confirmWalletLinked(${accountId})">
+        ✅ Já está cadastrado no Google Carteiras
+      </button>
+      <button class="gw-btn-add" onclick="goAddToWallet(${accountId})">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M21 18v1a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v1"/><polyline points="15 3 21 9 15 15" stroke="white" fill="none" stroke-width="2"/><line x1="21" y1="9" x2="9" y2="9" stroke="white" stroke-width="2"/></svg>
+        Adicionar ao Google Carteiras agora
+      </button>
+      <button class="gw-btn-cancel" onclick="closeGwModal()">Cancelar</button>
+    </div>
+  `;
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeGwModal(); });
+  document.body.appendChild(overlay);
+}
+
+function confirmWalletLinked(accountId) {
+  setWalletLinked(accountId, true);
+  closeGwModal();
+  toast('✅ Cartão vinculado! Toque no ícone NFC para abrir o Google Carteiras.');
+  navigateTo('accounts');
+}
+
+function goAddToWallet(accountId) {
+  closeGwModal();
+  window.open('https://pay.google.com', '_blank');
+  // Depois de abrir o wallet, marca como pendente de confirmação
+  setTimeout(() => {
+    customConfirm('Você adicionou o cartão no Google Carteiras?', () => {
+      setWalletLinked(accountId, true);
+      toast('✅ Vinculado! Agora toque no ícone NFC para pagar.');
+      navigateTo('accounts');
+    });
+  }, 3000);
+}
+
+function closeGwModal() {
+  const el = document.getElementById('gw-modal-overlay');
+  if (el) el.remove();
 }
 
 function openEditAccount(id) {
@@ -2773,963 +2888,6 @@ function deletePlanRule(id) {
     saveData('sabolli_planning', (loadData('sabolli_planning')||[]).filter(r=>r.id!==id));
     navigateTo('planning');
   });
-}
-
-// ===== EVOLUÇÃO / FITNESS v2 =====
-let currentEvoTab = 'treino';
-let currentEvoFilterYear = new Date().getFullYear();
-let currentEvoFilterMonth = new Date().getMonth();
-
-const MUSCLE_GROUPS = {
-  push:  {label:'Push',     emoji:'💪', color:'#2563EB', desc:'Peito, Ombro, Tríceps'},
-  pull:  {label:'Pull',     emoji:'🔙', color:'#059669', desc:'Costas, Bíceps'},
-  leg:   {label:'Leg',      emoji:'🦵', color:'#7C3AED', desc:'Pernas, Glúteos'},
-  core:  {label:'Core',     emoji:'🔥', color:'#D97706', desc:'Abdômen, Lombar'},
-  full:  {label:'Full Body',emoji:'🏋️', color:'#DC2626', desc:'Corpo inteiro'},
-  outro: {label:'Outro',    emoji:'🎯', color:'#6B7280', desc:'Exercício livre'}
-};
-
-const WEEK_DAYS = [
-  {id:'seg',s:'Seg',l:'Segunda'},
-  {id:'ter',s:'Ter',l:'Terça'},
-  {id:'qua',s:'Qua',l:'Quarta'},
-  {id:'qui',s:'Qui',l:'Quinta'},
-  {id:'sex',s:'Sex',l:'Sexta'},
-  {id:'sab',s:'Sáb',l:'Sábado'},
-  {id:'dom',s:'Dom',l:'Domingo'}
-];
-
-function todayWeekDayId() {
-  return ['dom','seg','ter','qua','qui','sex','sab'][new Date().getDay()];
-}
-
-function renderEvoluçaoDash() {
-  const tabs = [
-    ['treino','🏋️','Treino'],
-    ['check','✅','Check'],
-    ['calendario','📅','Agenda'],
-    ['historico','📊','Histórico'],
-    ['alimentacao','🥗','Nutrição']
-  ];
-  const tabsHtml = `<div style="display:flex;gap:4px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;-webkit-overflow-scrolling:touch;scrollbar-width:none">
-    ${tabs.map(([id,em,lb])=>`<button onclick="currentEvoTab='${id}';refreshEvoDash()"
-      style="flex-shrink:0;padding:8px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;background:${currentEvoTab===id?'var(--blue-vivid)':'var(--bg)'};color:${currentEvoTab===id?'#fff':'var(--text-sec)'};border:1.5px solid ${currentEvoTab===id?'var(--blue-vivid)':'var(--border)'}">${em} ${lb}</button>`).join('')}
-  </div>`;
-  let body = '';
-  if (currentEvoTab==='treino')        body = renderEvoTreino();
-  else if (currentEvoTab==='check')    body = renderEvoCheck();
-  else if (currentEvoTab==='calendario') body = renderEvoCalendario();
-  else if (currentEvoTab==='historico')  body = renderEvoHistorico();
-  else if (currentEvoTab==='alimentacao') body = renderEvoNutricao();
-  return `<div>${tabsHtml}${body}</div>`;
-}
-
-// ---- ABA TREINO ----
-function renderEvoTreino() {
-  const programs = loadData('sabolli_programs') || [];
-  const exs = loadData('sabolli_program_exercises') || [];
-  const activePid = loadData('sabolli_active_program');
-
-  const programCards = programs.map(p => {
-    const pExs = exs.filter(e => e.programId === p.id);
-    const isActive = p.id === activePid;
-    const groups = Object.keys(MUSCLE_GROUPS).filter(g => pExs.some(e => e.group === g));
-
-    const tableHeaderCols = WEEK_DAYS.map(d=>`<th style="padding:6px 4px;font-size:10px;font-weight:700;color:var(--text-sec);text-align:center;min-width:44px">${d.s}</th>`).join('');
-    const tableRows = groups.map(g => {
-      const mg = MUSCLE_GROUPS[g];
-      const gExs = pExs.filter(e => e.group === g);
-      return `<tr>
-        <td style="padding:6px 8px;font-size:11px;font-weight:800;color:${mg.color};white-space:nowrap;vertical-align:top">${mg.emoji} ${mg.label}</td>
-        ${WEEK_DAYS.map(d => {
-          const dayExs = gExs.filter(e => (e.days||[]).includes(d.id));
-          return `<td style="padding:3px 2px;vertical-align:top">${dayExs.map(e=>`<div style="background:${mg.color}18;border-radius:5px;padding:3px 5px;margin-bottom:2px;font-size:10px;font-weight:600;color:${mg.color};white-space:nowrap">${e.name}<br><span style="opacity:0.8">${e.sets}×${e.reps}</span></div>`).join('')}</td>`;
-        }).join('')}
-      </tr>`;
-    }).join('');
-
-    return `<div style="border:1.5px solid ${isActive?'var(--blue-vivid)':'var(--border)'};border-radius:16px;margin-bottom:12px;overflow:hidden">
-      <div style="padding:12px 14px;background:${isActive?'var(--blue-vivid)':'var(--bg)'};display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-        <div>
-          <div style="font-weight:800;font-size:15px;color:${isActive?'#fff':'var(--text)'}">${p.name}</div>
-          <div style="font-size:11px;color:${isActive?'rgba(255,255,255,0.75)':'var(--text-sec)'}">
-            ${p.startDate||''}${p.endDate?' → '+p.endDate:''}${p.duration?' · '+p.duration+' semanas':''}
-          </div>
-        </div>
-        <div style="display:flex;gap:6px">
-          ${!isActive?`<button onclick="setActiveProgram(${p.id})" style="padding:5px 10px;border-radius:8px;background:var(--blue-vivid);border:none;color:#fff;font-size:11px;font-weight:700;cursor:pointer">Ativar</button>`:'<span style="background:rgba(255,255,255,0.25);color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:8px">ATIVO</span>'}
-          <button onclick="deleteProgram(${p.id})" style="padding:5px 8px;border-radius:8px;background:rgba(239,68,68,0.12);border:none;color:#EF4444;font-size:12px;cursor:pointer">🗑</button>
-        </div>
-      </div>
-      ${pExs.length>0?`<div style="overflow-x:auto;padding:8px"><table style="width:100%;border-collapse:collapse;min-width:400px">
-        <thead><tr><th style="padding:6px 8px;text-align:left;font-size:10px;font-weight:700;color:var(--text-sec)">Grupo</th>${tableHeaderCols}</tr></thead>
-        <tbody>${tableRows}</tbody></table></div>`
-      :`<div style="padding:14px;color:var(--text-sec);font-size:13px">Nenhum exercício ainda. Use "+ Exercício" abaixo.</div>`}
-      <div style="padding:10px 14px;border-top:1px solid var(--border)">
-        <button onclick="openAddExerciseForm(${p.id})" style="width:100%;padding:8px;border-radius:10px;border:1.5px dashed var(--border);background:transparent;color:var(--text-sec);font-size:12px;font-weight:700;cursor:pointer">+ Adicionar Exercício</button>
-      </div>
-    </div>`;
-  }).join('');
-
-  return `<div>
-    ${programs.length===0?`<div style="text-align:center;padding:32px 0;color:var(--text-sec)"><div style="font-size:40px;margin-bottom:8px">🏋️</div><div style="font-size:14px;font-weight:700;color:var(--text)">Nenhum programa criado</div><div style="font-size:12px;margin-top:4px">Crie seu primeiro programa abaixo</div></div>`:programCards}
-
-    <div class="section-card" style="margin-top:4px">
-      <div class="section-title" style="margin-bottom:12px">➕ Novo Programa de Treino</div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Nome</label><input id="prog-name" class="form-input" placeholder="Ex: MEU TREINO 1"></div>
-        <div class="form-group"><label class="form-label">Duração (semanas)</label><input id="prog-duration" type="number" class="form-input" placeholder="Ex: 8" min="1" max="52"></div>
-      </div>
-      <div class="form-group"><label class="form-label">Data de Início</label><input id="prog-start" type="date" class="form-input" value="${todayStr()}"></div>
-      <button class="btn-primary" onclick="saveProgram()" style="width:100%;margin-top:4px">Criar Programa</button>
-    </div>
-
-    <!-- Modal Adicionar Exercício -->
-    <div id="add-exercise-modal" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.55);align-items:flex-end;justify-content:center">
-      <div style="background:var(--card);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:600px;max-height:85vh;overflow-y:auto">
-        <div style="font-weight:800;font-size:16px;color:var(--text);margin-bottom:14px">💪 Adicionar Exercício</div>
-        <input type="hidden" id="ex-program-id">
-        <div class="form-group"><label class="form-label">Nome do Exercício</label><input id="ex-name" class="form-input" placeholder="Ex: Supino Reto"></div>
-        <div class="form-group"><label class="form-label">Grupo Muscular</label>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:4px">
-            ${Object.entries(MUSCLE_GROUPS).map(([id,mg])=>`<button type="button" id="mg-${id}" onclick="selectMuscleGroup('${id}')" style="padding:8px 4px;border-radius:10px;border:1.5px solid var(--border);background:var(--bg);color:var(--text-sec);font-size:12px;font-weight:700;cursor:pointer;text-align:center">${mg.emoji} ${mg.label}</button>`).join('')}
-          </div>
-          <input type="hidden" id="ex-group" value="">
-        </div>
-        <div class="form-group"><label class="form-label">Dias da Semana</label>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
-            ${WEEK_DAYS.map(d=>`<label style="display:flex;align-items:center;gap:5px;padding:7px 10px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);cursor:pointer;font-size:12px;font-weight:600;color:var(--text)"><input type="checkbox" id="day-${d.id}" value="${d.id}" style="accent-color:var(--blue-vivid)"> ${d.l}</label>`).join('')}
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">Séries</label><input id="ex-sets" type="number" class="form-input" placeholder="3" min="1" value="3"></div>
-          <div class="form-group"><label class="form-label">Repetições</label><input id="ex-reps" class="form-input" placeholder="12 ou 8-12" value="12"></div>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:4px">
-          <button class="btn-primary" style="flex:1" onclick="saveExercise()">Salvar Exercício</button>
-          <button class="btn-secondary" onclick="closeAddExerciseForm()">Cancelar</button>
-        </div>
-      </div>
-    </div>
-  </div>`;
-}
-
-function selectMuscleGroup(id) {
-  document.getElementById('ex-group').value = id;
-  Object.keys(MUSCLE_GROUPS).forEach(k => {
-    const btn = document.getElementById('mg-'+k);
-    if (!btn) return;
-    const mg = MUSCLE_GROUPS[k];
-    if (k===id) { btn.style.background=mg.color; btn.style.color='#fff'; btn.style.borderColor=mg.color; }
-    else { btn.style.background='var(--bg)'; btn.style.color='var(--text-sec)'; btn.style.borderColor='var(--border)'; }
-  });
-}
-
-function openAddExerciseForm(programId) {
-  document.getElementById('ex-program-id').value = programId;
-  const m = document.getElementById('add-exercise-modal');
-  if (m) m.style.display = 'flex';
-}
-
-function closeAddExerciseForm() {
-  const m = document.getElementById('add-exercise-modal');
-  if (m) m.style.display = 'none';
-}
-
-function saveProgram() {
-  const name = (document.getElementById('prog-name').value||'').trim();
-  if (!name) { toast('Informe o nome do programa','error'); return; }
-  const duration = Number(document.getElementById('prog-duration').value)||0;
-  const startDate = document.getElementById('prog-start').value || todayStr();
-  let endDate = '';
-  if (duration>0) { const d=new Date(startDate); d.setDate(d.getDate()+duration*7); endDate=d.toISOString().split('T')[0]; }
-  const programs = loadData('sabolli_programs') || [];
-  const id = nextId(programs);
-  programs.push({id,name,startDate,endDate,duration});
-  saveData('sabolli_programs', programs);
-  saveData('sabolli_active_program', id);
-  toast('Programa criado! ✅');
-  currentEvoTab = 'treino';
-  refreshEvoDash();
-}
-
-function setActiveProgram(id) {
-  saveData('sabolli_active_program', id);
-  currentEvoTab = 'treino';
-  refreshEvoDash();
-}
-
-function deleteProgram(id) {
-  saveData('sabolli_programs', (loadData('sabolli_programs')||[]).filter(p=>p.id!==id));
-  saveData('sabolli_program_exercises', (loadData('sabolli_program_exercises')||[]).filter(e=>e.programId!==id));
-  const active = loadData('sabolli_active_program');
-  if (active===id) {
-    const rem = loadData('sabolli_programs')||[];
-    saveData('sabolli_active_program', rem.length>0?rem[rem.length-1].id:null);
-  }
-  toast('Programa excluído');
-  currentEvoTab = 'treino';
-  refreshEvoDash();
-}
-
-function saveExercise() {
-  const programId = Number(document.getElementById('ex-program-id').value);
-  const name = (document.getElementById('ex-name').value||'').trim();
-  const group = document.getElementById('ex-group').value;
-  const days = WEEK_DAYS.map(d=>d.id).filter(d=>document.getElementById('day-'+d)?.checked);
-  const sets = Number(document.getElementById('ex-sets').value)||3;
-  const reps = (document.getElementById('ex-reps').value||'12').trim();
-  if (!name) { toast('Informe o nome do exercício','error'); return; }
-  if (!group) { toast('Selecione o grupo muscular','error'); return; }
-  if (days.length===0) { toast('Selecione pelo menos um dia','error'); return; }
-  const exs = loadData('sabolli_program_exercises') || [];
-  exs.push({id:nextId(exs),programId,name,group,days,sets,reps});
-  saveData('sabolli_program_exercises', exs);
-  toast('Exercício adicionado! 💪');
-  closeAddExerciseForm();
-  currentEvoTab = 'treino';
-  refreshEvoDash();
-}
-
-function deleteExercise(id) {
-  saveData('sabolli_program_exercises', (loadData('sabolli_program_exercises')||[]).filter(e=>e.id!==id));
-  toast('Exercício removido');
-  currentEvoTab = 'treino';
-  refreshEvoDash();
-}
-
-// ---- PERSONAGEM SVG ----
-const _svgCache = {};
-function buildCharSVGCached(stage, isFemale, w, h) {
-  const key = `${stage}-${isFemale}-${w}-${h}`;
-  if (!_svgCache[key]) _svgCache[key] = buildCharSVG(stage, isFemale, w, h);
-  return _svgCache[key];
-}
-
-function buildCharSVG(stage, isFemale, displayW, displayH) {
-  const VW=70, VH=122, cx=35;
-  const skin='#F4A261', hair=isFemale?'#6B3A2A':'#2C1810';
-  const shirts=['#94A3B8','#60A5FA','#3B82F6','#1D4ED8','#7C3AED'];
-  const shirt=shirts[stage], pants='#1E293B';
-  // [shlHW, chHW, waHW, hipM, hipF, armR, legR, neckHW]
-  const P=[
-    [10, 8,  6,  8, 11, 2,  3,  3  ],
-    [13, 11, 8,  10,14, 3,  5,  3.5],
-    [17, 15, 11, 13,17, 5,  7,  4  ],
-    [22, 20, 14, 16,21, 8,  9,  4.5],
-    [28, 25, 17, 19,25, 12, 11, 5  ],
-  ];
-  const [shlHW,chHW,waHW,hipHWM,hipHWF,armR,legR,neckHW]=P[stage];
-  const hipHW=isFemale?hipHWF:hipHWM;
-  const headR=11,headCY=12,neckTopY=23,neckH=8,shlY=31,
-        chBotY=57,waBotY=62,hipBotY=74,legBotY=117,armBotY=72;
-  const muscular=stage>=3;
-  let g='';
-  // Pernas
-  g+=`<rect x="${cx-hipHW}" y="${hipBotY-6}" width="${legR*2}" height="${legBotY-hipBotY+6}" rx="${legR}" fill="${pants}"/>`;
-  g+=`<rect x="${cx+hipHW-legR*2}" y="${hipBotY-6}" width="${legR*2}" height="${legBotY-hipBotY+6}" rx="${legR}" fill="${pants}"/>`;
-  // Shorts
-  g+=`<path d="M${cx-hipHW} ${waBotY} L${cx-hipHW} ${hipBotY} L${cx} ${hipBotY-5} L${cx+hipHW} ${hipBotY} L${cx+hipHW} ${waBotY} Z" fill="${pants}"/>`;
-  // Braços
-  if(muscular){
-    const bow=armR*1.1;
-    g+=`<path d="M${cx-shlHW} ${shlY+armR} Q${cx-shlHW-bow*2} ${shlY+17} ${cx-shlHW-armR*0.35} ${armBotY}" stroke="${shirt}" stroke-width="${armR*2}" stroke-linecap="round" fill="none"/>`;
-    g+=`<path d="M${cx+shlHW} ${shlY+armR} Q${cx+shlHW+bow*2} ${shlY+17} ${cx+shlHW+armR*0.35} ${armBotY}" stroke="${shirt}" stroke-width="${armR*2}" stroke-linecap="round" fill="none"/>`;
-  } else {
-    g+=`<line x1="${cx-shlHW}" y1="${shlY}" x2="${cx-shlHW-armR*0.1}" y2="${armBotY}" stroke="${shirt}" stroke-width="${armR*2}" stroke-linecap="round"/>`;
-    g+=`<line x1="${cx+shlHW}" y1="${shlY}" x2="${cx+shlHW+armR*0.1}" y2="${armBotY}" stroke="${shirt}" stroke-width="${armR*2}" stroke-linecap="round"/>`;
-  }
-  // Torso
-  const tHipW=isFemale?Math.max(chHW,hipHW*0.82):hipHW*0.9;
-  g+=`<path d="M${cx-shlHW} ${shlY} L${cx-chHW} ${chBotY} L${cx-waHW} ${waBotY} L${cx-tHipW} ${hipBotY-2} L${cx+tHipW} ${hipBotY-2} L${cx+waHW} ${waBotY} L${cx+chHW} ${chBotY} L${cx+shlHW} ${shlY} Z" fill="${shirt}"/>`;
-  if(stage>=4) g+=`<line x1="${cx}" y1="${shlY+3}" x2="${cx}" y2="${chBotY-3}" stroke="rgba(0,0,0,0.13)" stroke-width="1.5"/>`;
-  // Pescoço
-  g+=`<rect x="${cx-neckHW}" y="${neckTopY}" width="${neckHW*2}" height="${neckH+2}" rx="${neckHW}" fill="${skin}"/>`;
-  // Cabeça
-  g+=`<circle cx="${cx}" cy="${headCY}" r="${headR}" fill="${skin}"/>`;
-  // Cabelo
-  if(isFemale){
-    g+=`<path d="M${cx-headR-1} ${headCY+4} Q${cx-headR*0.85} ${headCY-headR*1.35} ${cx} ${headCY-headR*1.1} Q${cx+headR*0.85} ${headCY-headR*1.35} ${cx+headR+1} ${headCY+4}" fill="${hair}"/>`;
-    g+=`<rect x="${cx-headR-3}" y="${headCY-2}" width="5" height="${headR*1.2}" rx="2.5" fill="${hair}"/>`;
-    g+=`<rect x="${cx+headR-2}" y="${headCY-2}" width="5" height="${headR*1.2}" rx="2.5" fill="${hair}"/>`;
-  } else {
-    g+=`<path d="M${cx-headR*0.95} ${headCY-headR*0.08} Q${cx-headR*0.75} ${headCY-headR*1.22} ${cx} ${headCY-headR*1.12} Q${cx+headR*0.75} ${headCY-headR*1.22} ${cx+headR*0.95} ${headCY-headR*0.08} Z" fill="${hair}"/>`;
-  }
-  // Olhos
-  const eyeY=headCY+headR*0.12;
-  g+=`<circle cx="${cx-headR*0.3}" cy="${eyeY}" r="1.5" fill="#333"/>`;
-  g+=`<circle cx="${cx+headR*0.3}" cy="${eyeY}" r="1.5" fill="#333"/>`;
-  // Sorriso (cresce com o estágio)
-  const smW=headR*(0.22+stage*0.04);
-  g+=`<path d="M${cx-smW} ${headCY+headR*0.42} Q${cx} ${headCY+headR*(0.58+stage*0.03)} ${cx+smW} ${headCY+headR*0.42}" stroke="#8B4513" stroke-width="1.2" fill="none" stroke-linecap="round"/>`;
-  // Troféu no último estágio
-  if(stage===4) g+=`<text x="${cx}" y="${legBotY+11}" text-anchor="middle" font-size="10">🏆</text>`;
-  return `<svg viewBox="0 0 ${VW} ${VH+14}" width="${displayW||VW}" height="${displayH||(VH+14)}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;display:block">${g}</svg>`;
-}
-
-// ---- CARD DE EVOLUÇÃO DO MÊS ----
-function renderEvoProgress() {
-  const today=todayStr();
-  const parts=today.split('-');
-  const year=Number(parts[0]), month=Number(parts[1]);
-  const monthKey=`${year}-${String(month).padStart(2,'0')}`;
-  const trainingDays=loadData('sabolli_training_days')||{};
-  const trainedCount=Object.keys(trainingDays).filter(d=>d.startsWith(monthKey)).length;
-  const profile=loadData('sabolli_nutrition_profile')||{};
-  const isFemale=profile.sex==='F';
-  const TARGET=20;
-  const stage=Math.min(4,Math.floor(trainedCount/4));
-  const pct=Math.min(100,Math.round(trainedCount/TARGET*100));
-  const labels=isFemale
-    ?['Magra','Iniciante','Regular','Atleta','Musculosa']
-    :['Magrelo','Iniciante','Regular','Atleta','Musculoso'];
-  const colors=['#94A3B8','#60A5FA','#3B82F6','#1D4ED8','#7C3AED'];
-  const daysToNext=stage<4?(stage+1)*4-trainedCount:0;
-  const motivate=stage===4
-    ?`🏆 Incrível! Objetivo do mês atingido!`
-    :`Faltam <strong>${daysToNext}</strong> treino${daysToNext!==1?'s':''} para chegar em <strong>${labels[stage+1]}</strong>!`;
-  const monthNames=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-  const charsHtml=[0,1,2,3,4].map(i=>{
-    const isActive=i===stage;
-    const W=isActive?66:38, H=isActive?130:75;
-    const svg=buildCharSVGCached(i,isFemale,W,H);
-    const op=i>stage?'0.22':'1';
-    return `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;opacity:${op};flex-shrink:0">
-      ${isActive?`<div style="background:${colors[i]};color:#fff;font-size:8px;font-weight:900;padding:2px 6px;border-radius:6px;letter-spacing:.4px">VOCÊ</div>`:`<div style="height:16px"></div>`}
-      ${svg}
-      <div style="font-size:8px;font-weight:800;color:${isActive?colors[i]:'var(--text-sec)'};text-align:center;max-width:${W}px">${labels[i]}</div>
-    </div>`;
-  }).join(`<div style="color:var(--text-sec);font-size:13px;margin-bottom:22px;align-self:center;flex-shrink:0">›</div>`);
-  return `<div class="section-card" style="margin-bottom:8px">
-    <div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:2px">📈 Evolução — ${monthNames[month-1]}</div>
-    <div style="font-size:12px;color:var(--text-sec);margin-bottom:12px">${trainedCount} de ${TARGET} dias treinados este mês</div>
-    <div style="display:flex;align-items:flex-end;justify-content:center;gap:5px;overflow-x:auto;padding:0 4px 8px">
-      ${charsHtml}
-    </div>
-    <div style="margin:2px 0 10px">
-      <div style="background:var(--bg);border-radius:10px;height:7px;overflow:hidden">
-        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#94A3B8,${colors[stage]});border-radius:10px;transition:width .6s"></div>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-sec);margin-top:3px">
-        <span>0</span><span style="font-weight:700;color:${colors[stage]}">${trainedCount} dias · ${pct}%</span><span>${TARGET}</span>
-      </div>
-    </div>
-    <div style="background:${colors[stage]}18;border-left:3px solid ${colors[stage]};border-radius:0 8px 8px 0;padding:8px 12px;font-size:12px;color:var(--text)">${motivate}</div>
-  </div>`;
-}
-
-// ---- ABA CHECK ----
-function safeEvoProgress() {
-  try { return renderEvoProgress(); } catch(e) { return `<div class="section-card" style="color:red;font-size:11px">Erro progresso: ${e.message}</div>`; }
-}
-
-function renderEvoCheck() {
-  const today = todayStr();
-  const dayId = todayWeekDayId();
-  const activePid = loadData('sabolli_active_program');
-  if (!activePid) return safeEvoProgress()+`<div class="section-card" style="text-align:center;padding:30px"><div style="font-size:36px;margin-bottom:8px">🏋️</div><div style="color:var(--text-sec);font-size:13px">Crie e ative um programa de treino na aba <strong>Treino</strong> primeiro.</div></div>`;
-
-  const exs = (loadData('sabolli_program_exercises')||[]).filter(e=>e.programId===activePid&&(e.days||[]).includes(dayId));
-  const log = loadData('sabolli_workout_log') || {};
-  const todayLog = log[today] || {};
-  const doneCount = exs.filter(e=>todayLog[e.id]?.done).length;
-  const dayLabel = WEEK_DAYS.find(d=>d.id===dayId)?.l||'';
-  const cardioLog = loadData('sabolli_cardio_log') || {};
-  const todayCardio = cardioLog[today] || 0;
-  const mobilityLog = loadData('sabolli_mobility_log') || {};
-  const absLog = loadData('sabolli_abs_log') || {};
-  const todayMobility = mobilityLog[today] || false;
-  const todayAbs = absLog[today] || false;
-
-  // Card de mobilidade pré-treino
-  const mobilityCard = `<div class="section-card" style="margin-bottom:8px;border:2px solid ${todayMobility?'#10b981':'var(--border)'}">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-      <span style="font-size:24px">🧘</span>
-      <div>
-        <div style="font-weight:800;font-size:14px;color:var(--text)">Mobilidade pré-treino</div>
-        <div style="font-size:11px;color:var(--text-sec)">Faça antes de começar os exercícios</div>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px">
-      <button onclick="setMobility(true)" style="flex:1;padding:11px;border-radius:10px;border:2px solid ${todayMobility?'#10b981':'var(--border)'};background:${todayMobility?'#10b981':'var(--card)'};color:${todayMobility?'#fff':'var(--text-sec)'};font-weight:800;font-size:14px;cursor:pointer">✅ Fiz</button>
-      <button onclick="setMobility(false)" style="flex:1;padding:11px;border-radius:10px;border:2px solid ${!todayMobility?'#ef4444':'var(--border)'};background:${!todayMobility?'#FEE2E2':'var(--card)'};color:${!todayMobility?'#991B1B':'var(--text-sec)'};font-weight:800;font-size:14px;cursor:pointer">❌ Não fiz</button>
-    </div>
-  </div>`;
-
-  if (exs.length===0) return safeEvoProgress()+mobilityCard+`<div class="section-card" style="text-align:center;padding:30px">
-    <div style="font-size:36px;margin-bottom:8px">😴</div>
-    <div style="font-weight:700;color:var(--text);margin-bottom:4px">Dia de descanso!</div>
-    <div style="color:var(--text-sec);font-size:13px">Nenhum exercício programado para ${dayLabel}.</div>
-  </div>
-  <div class="section-card">
-    <div class="section-title" style="margin-bottom:12px">🏃 Cardio · 💪 Abdominal</div>
-    ${renderCardioForm(todayCardio)}
-    ${renderAbsCheck(todayAbs)}
-  </div>`;
-
-  const checkHtml = exs.map(ex => {
-    const exLog = todayLog[ex.id] || {};
-    const done = exLog.done || false;
-    const mg = MUSCLE_GROUPS[ex.group] || MUSCLE_GROUPS.outro;
-    const warmupOn = exLog.warmupYes || false;
-
-    if (done) {
-      return `<div style="border-radius:14px;border:2px solid ${mg.color};margin-bottom:10px;overflow:hidden">
-        <div style="padding:12px 14px;background:${mg.color}18;display:flex;align-items:center;gap:10px">
-          <div style="width:32px;height:32px;border-radius:50%;background:${mg.color};display:flex;align-items:center;justify-content:center;flex-shrink:0">
-            <span style="color:#fff;font-size:16px;font-weight:900">✓</span>
-          </div>
-          <div style="flex:1">
-            <div style="font-weight:700;font-size:14px;color:var(--text)">${ex.name}</div>
-            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
-              ${exLog.warmupYes?`<span style="font-size:11px;background:${mg.color}22;color:${mg.color};font-weight:700;padding:2px 8px;border-radius:6px">🔥 Aquec: ${exLog.warmupSets||1}s × ${exLog.warmupWeight||0}kg</span>`:''}
-              ${exLog.sets?`<span style="font-size:11px;background:${mg.color}22;color:${mg.color};font-weight:700;padding:2px 8px;border-radius:6px">${exLog.sets} séries</span>`:''}
-              ${exLog.reps?`<span style="font-size:11px;background:${mg.color}22;color:${mg.color};font-weight:700;padding:2px 8px;border-radius:6px">${exLog.reps} reps</span>`:''}
-              ${exLog.weight?`<span style="font-size:11px;background:${mg.color}22;color:${mg.color};font-weight:700;padding:2px 8px;border-radius:6px">${exLog.weight} kg</span>`:''}
-            </div>
-          </div>
-          <button onclick="toggleExerciseDone(${ex.id})" style="font-size:11px;padding:4px 10px;border-radius:8px;border:none;background:rgba(0,0,0,0.07);color:var(--text-sec);cursor:pointer;flex-shrink:0">Desfazer</button>
-        </div>
-      </div>`;
-    }
-
-    return `<div style="border-radius:14px;border:1.5px solid var(--border);margin-bottom:10px;overflow:hidden;background:var(--card)">
-      <div style="padding:12px 14px;background:${mg.color}10;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">
-        <div style="width:32px;height:32px;border-radius:50%;border:2px dashed ${mg.color};display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <span style="font-size:16px">${mg.emoji}</span>
-        </div>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:14px;color:var(--text)">${ex.name}</div>
-          <div style="font-size:11px;color:${mg.color};font-weight:700;margin-top:1px">${mg.label} · Meta: ${ex.sets} séries × ${ex.reps} reps</div>
-        </div>
-      </div>
-
-      <div style="padding:12px 14px">
-        <!-- Aquecimento -->
-        <div style="background:var(--bg);border-radius:10px;padding:10px 12px;margin-bottom:10px">
-          <div style="font-size:11px;font-weight:800;color:var(--text-sec);margin-bottom:8px;letter-spacing:.5px">🔥 AQUECIMENTO ANTES?</div>
-          <div style="display:flex;gap:8px;margin-bottom:${warmupOn?'10':'0'}px">
-            <button onclick="setWarmup(${ex.id},true)" style="flex:1;padding:8px;border-radius:8px;border:2px solid ${warmupOn?'#F59E0B':'var(--border)'};background:${warmupOn?'#FEF3C7':'var(--card)'};color:${warmupOn?'#92400E':'var(--text-sec)'};font-weight:800;font-size:13px;cursor:pointer">🔥 Sim</button>
-            <button onclick="setWarmup(${ex.id},false)" style="flex:1;padding:8px;border-radius:8px;border:2px solid ${!warmupOn?'#94A3B8':'var(--border)'};background:${!warmupOn?'#F1F5F9':'var(--card)'};color:${!warmupOn?'#475569':'var(--text-sec)'};font-weight:800;font-size:13px;cursor:pointer">Não</button>
-          </div>
-          <div id="warmup-fields-${ex.id}" style="display:${warmupOn?'flex':'none'};gap:8px">
-            <div style="flex:1"><label style="font-size:10px;font-weight:700;color:var(--text-sec);display:block;margin-bottom:4px">SÉRIES AQUEC.</label><input type="number" id="warmup-sets-${ex.id}" value="${exLog.warmupSets||1}" class="form-input" style="text-align:center"></div>
-            <div style="flex:1"><label style="font-size:10px;font-weight:700;color:var(--text-sec);display:block;margin-bottom:4px">PESO AQUEC. (kg)</label><input type="number" id="warmup-weight-${ex.id}" value="${exLog.warmupWeight||''}" class="form-input" placeholder="0" style="text-align:center"></div>
-          </div>
-        </div>
-
-        <!-- Séries / Reps / Peso -->
-        <div style="font-size:11px;font-weight:800;color:var(--text-sec);margin-bottom:8px;letter-spacing:.5px">💪 EXECUÇÃO</div>
-        <div style="display:flex;gap:8px;margin-bottom:12px">
-          <div style="flex:1;text-align:center">
-            <label style="font-size:10px;font-weight:700;color:var(--text-sec);display:block;margin-bottom:4px">SÉRIES</label>
-            <input type="number" id="log-sets-${ex.id}" value="${exLog.sets||ex.sets}" class="form-input" style="text-align:center;font-size:18px;font-weight:900;padding:10px 6px">
-          </div>
-          <div style="flex:1;text-align:center">
-            <label style="font-size:10px;font-weight:700;color:${mg.color};display:block;margin-bottom:4px">REPS FEITAS</label>
-            <input type="number" id="log-reps-${ex.id}" value="${exLog.reps||''}" class="form-input" placeholder="${ex.reps}" style="text-align:center;font-size:18px;font-weight:900;padding:10px 6px;border-color:${mg.color}">
-          </div>
-          <div style="flex:1;text-align:center">
-            <label style="font-size:10px;font-weight:700;color:var(--text-sec);display:block;margin-bottom:4px">PESO (kg)</label>
-            <input type="number" id="log-weight-${ex.id}" value="${exLog.weight||''}" class="form-input" placeholder="0" style="text-align:center;font-size:18px;font-weight:900;padding:10px 6px">
-          </div>
-        </div>
-        <button onclick="saveExerciseLog(${ex.id})" style="width:100%;padding:12px;border-radius:12px;background:${mg.color};border:none;color:#fff;font-size:14px;font-weight:900;cursor:pointer;letter-spacing:.3px">✓ CONFIRMAR EXERCÍCIO</button>
-      </div>
-    </div>`;
-  }).join('');
-
-  const pct = exs.length>0 ? Math.round(doneCount/exs.length*100) : 0;
-  return `<div>
-    ${safeEvoProgress()}
-    ${mobilityCard}
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">
-      <div>
-        <div style="font-weight:800;font-size:15px;color:var(--text)">📋 ${dayLabel} — ${today.split('-').reverse().join('/')}</div>
-        <div style="font-size:12px;color:var(--text-sec);margin-top:2px">${doneCount} de ${exs.length} exercícios concluídos</div>
-      </div>
-      ${doneCount>0&&doneCount===exs.length?`<div style="background:#D1FAE5;color:#065F46;font-size:12px;font-weight:800;padding:6px 12px;border-radius:10px">🎉 Treino concluído!</div>`:''}
-    </div>
-    <div style="background:var(--bg);border-radius:10px;height:8px;margin-bottom:14px;overflow:hidden">
-      <div style="height:100%;width:${pct}%;background:var(--blue-vivid);border-radius:10px;transition:width .4s"></div>
-    </div>
-    ${checkHtml}
-    <div class="section-card" style="margin-top:4px">
-      <div class="section-title" style="margin-bottom:12px">🏃 Cardio · 💪 Abdominal</div>
-      ${renderCardioForm(todayCardio)}
-      ${renderAbsCheck(todayAbs)}
-    </div>
-  </div>`;
-}
-
-function renderAbsCheck(abs) {
-  return `<div style="margin-top:12px">
-    <div style="font-size:11px;font-weight:800;color:var(--text-sec);margin-bottom:8px;letter-spacing:.5px">💪 ABDOMINAL FEITO HOJE?</div>
-    <div style="display:flex;gap:8px">
-      <button onclick="setAbs(true)" style="flex:1;padding:11px;border-radius:10px;border:2px solid ${abs?'#8b5cf6':'var(--border)'};background:${abs?'#EDE9FE':'var(--card)'};color:${abs?'#5B21B6':'var(--text-sec)'};font-weight:800;font-size:14px;cursor:pointer">✅ Fiz</button>
-      <button onclick="setAbs(false)" style="flex:1;padding:11px;border-radius:10px;border:2px solid ${!abs?'#94A3B8':'var(--border)'};background:${!abs?'#F1F5F9':'var(--card)'};color:${!abs?'#475569':'var(--text-sec)'};font-weight:800;font-size:14px;cursor:pointer">❌ Não fiz</button>
-    </div>
-  </div>`;
-}
-
-function renderCardioForm(current) {
-  return `<div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
-    <div style="flex:1;min-width:110px"><label class="form-label">Minutos</label><input type="number" id="cardio-min" class="form-input" placeholder="30" value="${current||''}"></div>
-    <div style="flex:1;min-width:110px"><label class="form-label">Tipo</label><select id="cardio-type" class="form-select"><option>Corrida</option><option>Bicicleta</option><option>Elíptico</option><option>Pular corda</option><option>Caminhada</option><option>Outro</option></select></div>
-    <button onclick="saveCardio()" class="btn-primary" style="padding:10px 16px">Salvar</button>
-  </div>
-  ${current>0?`<div style="margin-top:10px;padding:8px 12px;background:var(--bg);border-radius:8px;font-size:13px;color:#059669;font-weight:700">✅ ${current} min de cardio registrado hoje!</div>`:''}`;
-}
-
-function toggleWarmupFields(exId, show) {
-  const el = document.getElementById('warmup-fields-'+exId);
-  if (el) el.style.display = show?'flex':'none';
-}
-
-function toggleExerciseDone(exId) {
-  const today = todayStr();
-  const log = loadData('sabolli_workout_log') || {};
-  if (!log[today]) log[today] = {};
-  if (log[today][exId]?.done) delete log[today][exId];
-  else log[today][exId] = {done:true};
-  saveData('sabolli_workout_log', log);
-  currentEvoTab = 'check';
-  refreshEvoDash();
-}
-
-function saveExerciseLog(exId) {
-  const today = todayStr();
-  const log = loadData('sabolli_workout_log') || {};
-  if (!log[today]) log[today] = {};
-  const sets = Number(document.getElementById('log-sets-'+exId)?.value)||0;
-  const reps = Number(document.getElementById('log-reps-'+exId)?.value)||0;
-  const weight = Number(document.getElementById('log-weight-'+exId)?.value)||0;
-  const warmupYes = document.getElementById('warmup-'+exId)?.checked||false;
-  const warmupSets = warmupYes?(Number(document.getElementById('warmup-sets-'+exId)?.value)||1):0;
-  const warmupWeight = warmupYes?(Number(document.getElementById('warmup-weight-'+exId)?.value)||0):0;
-  log[today][exId] = {done:true,sets,reps,weight,warmupYes,warmupSets,warmupWeight};
-  saveData('sabolli_workout_log', log);
-  const days = loadData('sabolli_training_days') || {};
-  days[today] = loadData('sabolli_active_program') || true;
-  saveData('sabolli_training_days', days);
-  toast('Registrado! 💪');
-  currentEvoTab = 'check';
-  refreshEvoDash();
-}
-
-function saveCardio() {
-  const min = Number(document.getElementById('cardio-min')?.value)||0;
-  if (!min) { toast('Informe os minutos de cardio','error'); return; }
-  const today = todayStr();
-  const log = loadData('sabolli_cardio_log') || {};
-  log[today] = min;
-  saveData('sabolli_cardio_log', log);
-  const days = loadData('sabolli_training_days') || {};
-  if (!days[today]) days[today] = true;
-  saveData('sabolli_training_days', days);
-  toast(`${min} min de cardio! 🏃`);
-  currentEvoTab = 'check';
-  refreshEvoDash();
-}
-
-function setMobility(val) {
-  const today = todayStr();
-  const log = loadData('sabolli_mobility_log') || {};
-  log[today] = val;
-  saveData('sabolli_mobility_log', log);
-  toast(val ? 'Mobilidade feita! 🧘 Bora treinar!' : 'Mobilidade marcada como não feita');
-  currentEvoTab = 'check';
-  refreshEvoDash();
-}
-
-function setAbs(val) {
-  const today = todayStr();
-  const log = loadData('sabolli_abs_log') || {};
-  log[today] = val;
-  saveData('sabolli_abs_log', log);
-  toast(val ? 'Abdominal feito! 💪' : 'Abdominal marcado como não feito');
-  currentEvoTab = 'check';
-  refreshEvoDash();
-}
-
-function setWarmup(exId, val) {
-  const today = todayStr();
-  const log = loadData('sabolli_workout_log') || {};
-  if (!log[today]) log[today] = {};
-  if (!log[today][exId]) log[today][exId] = {};
-  log[today][exId].warmupYes = val;
-  saveData('sabolli_workout_log', log);
-  currentEvoTab = 'check';
-  refreshEvoDash();
-}
-
-// ---- ABA CALENDÁRIO ----
-function renderEvoCalendario() {
-  const year = currentEvoFilterYear;
-  const month = currentEvoFilterMonth;
-  const trainingDays = loadData('sabolli_training_days') || {};
-  const cardioLog = loadData('sabolli_cardio_log') || {};
-  const monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-  const firstDay = new Date(year,month,1).getDay();
-  const daysInMonth = new Date(year,month+1,0).getDate();
-  const today = todayStr();
-  const monthKey = `${year}-${String(month+1).padStart(2,'0')}`;
-
-  const dayNames = ['D','S','T','Q','Q','S','S'];
-  let calCells = dayNames.map(d=>`<div style="text-align:center;font-size:11px;font-weight:800;color:var(--text-sec);padding:5px 0">${d}</div>`).join('');
-  for (let i=0;i<firstDay;i++) calCells+=`<div></div>`;
-  for (let d=1;d<=daysInMonth;d++) {
-    const dateStr=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const isToday=dateStr===today;
-    const isTrained=trainingDays[dateStr];
-    const hasCardio=cardioLog[dateStr];
-    calCells+=`<div onclick="toggleTrainingDay('${dateStr}')" style="cursor:pointer;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:auto;position:relative;font-size:13px;font-weight:${isToday?'900':'600'};background:${isTrained?'var(--blue-vivid)':isToday?'var(--bg)':'transparent'};color:${isTrained?'#fff':isToday?'var(--blue-vivid)':'var(--text)'};border:${isToday&&!isTrained?'2px solid var(--blue-vivid)':'none'};user-select:none;transition:all .15s">
-      ${isTrained?`<span style="position:absolute;font-size:17px;font-weight:900;opacity:0.35">✕</span>`:''}
-      <span>${d}</span>
-      ${hasCardio&&!isTrained?`<span style="position:absolute;bottom:1px;right:3px;font-size:7px">🏃</span>`:''}
-    </div>`;
-  }
-
-  const trainedCount = Object.keys(trainingDays).filter(d=>d.startsWith(monthKey)).length;
-  const cardioCount = Object.keys(cardioLog).filter(d=>d.startsWith(monthKey)).length;
-
-  return `<div class="section-card">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <button onclick="changeEvoMonth(-1)" style="border:none;background:var(--bg);border-radius:8px;padding:7px 14px;font-size:18px;cursor:pointer;color:var(--text)">‹</button>
-      <div style="text-align:center">
-        <div style="font-weight:800;font-size:16px;color:var(--text)">${monthNames[month]} ${year}</div>
-        <div style="font-size:11px;color:var(--text-sec);margin-top:2px">${trainedCount} dia${trainedCount!==1?'s':''} de treino · ${cardioCount} de cardio</div>
-      </div>
-      <button onclick="changeEvoMonth(1)" style="border:none;background:var(--bg);border-radius:8px;padding:7px 14px;font-size:18px;cursor:pointer;color:var(--text)">›</button>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;place-items:center;margin-bottom:12px">${calCells}</div>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--text-sec);padding-top:10px;border-top:1px solid var(--border)">
-      <span>✕ = dia treinado</span><span>🏃 = cardio</span><span>Toque num dia para marcar/desmarcar</span>
-    </div>
-  </div>`;
-}
-
-function changeEvoMonth(delta) {
-  let m=currentEvoFilterMonth+delta, y=currentEvoFilterYear;
-  if (m>11){m=0;y++;} if (m<0){m=11;y--;}
-  currentEvoFilterMonth=m; currentEvoFilterYear=y;
-  currentEvoTab='calendario';
-  refreshEvoDash();
-}
-
-function toggleTrainingDay(dateStr) {
-  const days = loadData('sabolli_training_days') || {};
-  if (days[dateStr]) delete days[dateStr]; else days[dateStr]=true;
-  saveData('sabolli_training_days', days);
-  currentEvoTab='calendario';
-  refreshEvoDash();
-}
-
-// ---- ABA HISTÓRICO ----
-function renderEvoHistorico() {
-  const year=currentEvoFilterYear, month=currentEvoFilterMonth;
-  const log = loadData('sabolli_workout_log') || {};
-  const trainingDays = loadData('sabolli_training_days') || {};
-  const mobilityLog = loadData('sabolli_mobility_log') || {};
-  const absLog = loadData('sabolli_abs_log') || {};
-  const exs = loadData('sabolli_program_exercises') || [];
-  const monthNames=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  const monthKey=`${year}-${String(month+1).padStart(2,'0')}`;
-  const trainedDays=Object.keys(trainingDays).filter(d=>d.startsWith(monthKey)).sort();
-  const monthDates=Object.keys(log).filter(d=>d.startsWith(monthKey)).sort();
-  const totalExCount=monthDates.reduce((s,d)=>s+Object.values(log[d]||{}).filter(v=>v.done).length,0);
-  const mobilityDays=Object.keys(mobilityLog).filter(d=>d.startsWith(monthKey)&&mobilityLog[d]===true).sort();
-  const absDays=Object.keys(absLog).filter(d=>d.startsWith(monthKey)&&absLog[d]===true).sort();
-
-  const exerciseProgress=exs.map(ex=>{
-    const entries=monthDates.filter(d=>log[d]?.[ex.id]?.done).map(d=>({date:d,...log[d][ex.id]}));
-    return {ex,entries};
-  }).filter(x=>x.entries.length>0);
-
-  const fmtDay = d => `${d.slice(8)}/${parseInt(d.slice(5,7))}`;
-
-  return `<div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-      <div style="font-weight:800;font-size:15px;color:var(--text)">📊 Histórico</div>
-      <div style="display:flex;align-items:center;gap:6px">
-        <button onclick="changeEvoMonth(-1)" style="border:none;background:var(--bg);border-radius:6px;padding:6px 12px;cursor:pointer;color:var(--text);font-size:14px">‹</button>
-        <span style="font-size:13px;font-weight:700;color:var(--text)">${monthNames[month]} ${year}</span>
-        <button onclick="changeEvoMonth(1)" style="border:none;background:var(--bg);border-radius:6px;padding:6px 12px;cursor:pointer;color:var(--text);font-size:14px">›</button>
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px">
-      <div class="kpi-mini"><div class="kpi-mini-label">Dias Treino</div><div class="kpi-mini-value" style="color:var(--blue-vivid)">${trainedDays.length}</div></div>
-      <div class="kpi-mini"><div class="kpi-mini-label">Exercícios Feitos</div><div class="kpi-mini-value" style="color:#10B981">${totalExCount}</div></div>
-      <div class="kpi-mini"><div class="kpi-mini-label">🧘 Mobilidade</div><div class="kpi-mini-value" style="color:#7C3AED">${mobilityDays.length}</div></div>
-      <div class="kpi-mini"><div class="kpi-mini-label">💪 Abdominal</div><div class="kpi-mini-value" style="color:#F59E0B">${absDays.length}</div></div>
-    </div>
-    ${mobilityDays.length>0||absDays.length>0?`<div class="section-card" style="margin-bottom:10px">
-      <div class="section-title" style="margin-bottom:10px">🧘 Mobilidade & Abdominal</div>
-      ${mobilityDays.length>0?`<div style="margin-bottom:8px">
-        <div style="font-size:12px;font-weight:700;color:#7C3AED;margin-bottom:6px">Mobilidade (${mobilityDays.length} dias)</div>
-        <div style="display:flex;flex-wrap:wrap;gap:5px">${mobilityDays.map(d=>`<span style="background:#7C3AED18;color:#7C3AED;font-size:11px;font-weight:700;padding:3px 9px;border-radius:8px">${fmtDay(d)}</span>`).join('')}</div>
-      </div>`:''}
-      ${absDays.length>0?`<div>
-        <div style="font-size:12px;font-weight:700;color:#F59E0B;margin-bottom:6px">Abdominal (${absDays.length} dias)</div>
-        <div style="display:flex;flex-wrap:wrap;gap:5px">${absDays.map(d=>`<span style="background:#F59E0B18;color:#F59E0B;font-size:11px;font-weight:700;padding:3px 9px;border-radius:8px">${fmtDay(d)}</span>`).join('')}</div>
-      </div>`:''}
-    </div>`:''}
-
-    ${exerciseProgress.length>0?`<div class="section-card">
-      <div class="section-title" style="margin-bottom:12px">📈 Progressão por Exercício</div>
-      ${exerciseProgress.map(({ex,entries})=>{
-        const mg=MUSCLE_GROUPS[ex.group]||MUSCLE_GROUPS.outro;
-        const weights=entries.filter(e=>e.weight>0).map(e=>e.weight);
-        const maxW=weights.length>0?Math.max(...weights):0;
-        return `<div style="padding:10px 12px;border-radius:12px;background:var(--bg);border:1px solid var(--border);margin-bottom:8px">
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;margin-bottom:8px">
-            <div><span style="font-size:13px;font-weight:800;color:${mg.color}">${mg.emoji} ${ex.name}</span><div style="font-size:11px;color:var(--text-sec);margin-top:2px">${entries.length}× neste mês · Meta: ${ex.sets}×${ex.reps}</div></div>
-            ${maxW>0?`<div style="text-align:right"><div style="font-size:18px;font-weight:900;color:var(--blue-vivid)">${maxW}kg</div><div style="font-size:10px;color:var(--text-sec)">máx. no mês</div></div>`:''}
-          </div>
-          <div style="display:flex;gap:4px;overflow-x:auto;padding-bottom:2px">
-            ${entries.map(e=>`<div style="flex-shrink:0;text-align:center;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:4px 8px;min-width:52px">
-              <div style="font-size:10px;color:var(--text-sec)">${e.date.slice(8)}/${parseInt(e.date.slice(5,7))}</div>
-              <div style="font-size:12px;font-weight:700;color:var(--text)">${e.sets}×${e.reps||ex.reps}</div>
-              ${e.weight?`<div style="font-size:11px;font-weight:800;color:${mg.color}">${e.weight}kg</div>`:''}
-              ${e.warmupYes?`<div style="font-size:9px;color:var(--text-sec)">🔥${e.warmupSets}×${e.warmupWeight}kg</div>`:''}
-            </div>`).join('')}
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`:`<div class="section-card" style="text-align:center;padding:24px;color:var(--text-sec)"><div style="font-size:32px;margin-bottom:8px">📊</div>Nenhum registro em ${monthNames[month]} ${year}</div>`}
-    ${trainedDays.length>0?`<div class="section-card"><div class="section-title" style="margin-bottom:10px">📅 Dias treinados</div><div style="display:flex;flex-wrap:wrap;gap:6px">${trainedDays.map(d=>`<span style="background:var(--blue-vivid)18;color:var(--blue-vivid);font-size:11px;font-weight:700;padding:4px 10px;border-radius:8px">${d.split('-').reverse().join('/')}</span>`).join('')}</div></div>`:''}
-  </div>`;
-}
-
-// ---- ABA NUTRIÇÃO ----
-function renderEvoNutricao() {
-  const profile = loadData('sabolli_nutrition_profile') || {};
-  const measurements = loadData('sabolli_measurements') || [];
-  const lastMeas = measurements.length>0?measurements[measurements.length-1]:null;
-  const hasBmr = !!profile.tdee;
-  const hasGoal = !!profile.goal;
-
-  return `<div style="display:flex;flex-direction:column;gap:12px">
-    <!-- Medidas -->
-    <div class="section-card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="section-title" style="margin:0">📏 Minhas Medidas</div>
-        <button onclick="toggleMeasForm()" class="btn-outline" style="font-size:12px;padding:5px 10px">+ Registrar</button>
-      </div>
-      ${lastMeas?`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
-        <div class="kpi-mini"><div class="kpi-mini-label">Peso</div><div class="kpi-mini-value" style="color:var(--blue-vivid)">${lastMeas.weight}kg</div></div>
-        <div class="kpi-mini"><div class="kpi-mini-label">Altura</div><div class="kpi-mini-value" style="color:#10B981">${lastMeas.height}cm</div></div>
-        <div class="kpi-mini"><div class="kpi-mini-label">IMC</div><div class="kpi-mini-value" style="color:#F59E0B">${(lastMeas.weight/(lastMeas.height/100)**2).toFixed(1)}</div></div>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
-        ${lastMeas.chest?`<span style="font-size:12px;padding:4px 10px;background:var(--bg);border-radius:8px;border:1px solid var(--border);color:var(--text)">Peito <b>${lastMeas.chest}cm</b></span>`:''}
-        ${lastMeas.waist?`<span style="font-size:12px;padding:4px 10px;background:var(--bg);border-radius:8px;border:1px solid var(--border);color:var(--text)">Cintura <b>${lastMeas.waist}cm</b></span>`:''}
-        ${lastMeas.hip?`<span style="font-size:12px;padding:4px 10px;background:var(--bg);border-radius:8px;border:1px solid var(--border);color:var(--text)">Quadril <b>${lastMeas.hip}cm</b></span>`:''}
-        ${lastMeas.arm?`<span style="font-size:12px;padding:4px 10px;background:var(--bg);border-radius:8px;border:1px solid var(--border);color:var(--text)">Braço <b>${lastMeas.arm}cm</b></span>`:''}
-        ${lastMeas.thigh?`<span style="font-size:12px;padding:4px 10px;background:var(--bg);border-radius:8px;border:1px solid var(--border);color:var(--text)">Coxa <b>${lastMeas.thigh}cm</b></span>`:''}
-      </div>
-      <div style="font-size:11px;color:var(--text-sec)">Último: ${lastMeas.date.split('-').reverse().join('/')} · ${measurements.length} registro(s)</div>`
-      :`<div style="color:var(--text-sec);font-size:13px">Nenhuma medida registrada ainda.</div>`}
-      <div id="meas-form" style="display:none;margin-top:12px;padding:14px;background:var(--bg);border-radius:12px;border:1px solid var(--border)">
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">Peso (kg)</label><input id="meas-weight" type="number" step="0.1" class="form-input" placeholder="75.5"></div>
-          <div class="form-group"><label class="form-label">Altura (cm)</label><input id="meas-height" type="number" class="form-input" placeholder="175" value="${lastMeas?.height||''}"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">Idade</label><input id="meas-age" type="number" class="form-input" placeholder="25" value="${profile.age||''}"></div>
-          <div class="form-group"><label class="form-label">Sexo</label><select id="meas-sex" class="form-select"><option value="M" ${profile.sex==='M'?'selected':''}>Masculino</option><option value="F" ${profile.sex==='F'?'selected':''}>Feminino</option></select></div>
-        </div>
-        <div style="font-size:12px;font-weight:700;color:var(--text-sec);margin:8px 0 6px">Medidas corporais (opcional)</div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">Peito (cm)</label><input id="meas-chest" type="number" class="form-input" placeholder="95"></div>
-          <div class="form-group"><label class="form-label">Cintura (cm)</label><input id="meas-waist" type="number" class="form-input" placeholder="80"></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">Quadril (cm)</label><input id="meas-hip" type="number" class="form-input" placeholder="95"></div>
-          <div class="form-group"><label class="form-label">Braço (cm)</label><input id="meas-arm" type="number" class="form-input" placeholder="35"></div>
-        </div>
-        <div class="form-group"><label class="form-label">Coxa (cm)</label><input id="meas-thigh" type="number" class="form-input" placeholder="55"></div>
-        <div style="display:flex;gap:8px;margin-top:4px">
-          <button class="btn-primary" style="flex:1" onclick="saveMeasurements()">Salvar Medidas</button>
-          <button class="btn-secondary" onclick="toggleMeasForm()">Cancelar</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Metabolismo Basal -->
-    <div class="section-card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div>
-          <div class="section-title" style="margin:0">⚡ Metabolismo Basal</div>
-          ${hasBmr?`<div style="font-size:11px;color:var(--text-sec);margin-top:2px">TMB: ${profile.bmr} kcal · TDEE: ${profile.tdee} kcal/dia</div>`:''}
-        </div>
-        <button onclick="toggleBmrForm()" style="min-width:28px;height:28px;border-radius:50%;border:1.5px solid var(--border);background:${hasBmr?'#D1FAE5':'var(--bg)'};color:${hasBmr?'#065F46':'var(--text-sec)'};font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center">${hasBmr?'✓':'+'}</button>
-      </div>
-      ${hasBmr?`<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
-        <div class="kpi-mini"><div class="kpi-mini-label">TMB (repouso)</div><div class="kpi-mini-value" style="color:var(--blue-vivid)">${profile.bmr} kcal</div></div>
-        <div class="kpi-mini"><div class="kpi-mini-label">TDEE (com atividade)</div><div class="kpi-mini-value" style="color:#10B981">${profile.tdee} kcal</div></div>
-      </div>`:`<div style="color:var(--text-sec);font-size:13px">Clique em ➕ para calcular seu gasto calórico diário.</div>`}
-      <div id="bmr-form" style="display:none;margin-top:12px;padding:14px;background:var(--bg);border-radius:12px;border:1px solid var(--border)">
-        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">Como é seu nível de atividade?</div>
-        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-          ${[['sed','😴','Sedentário','Trabalho sentado, sem exercício','1.2'],['leve','🚶','Levemente ativo','Exercício 1–3 dias/semana','1.375'],['mod','🏃','Moderadamente ativo','Exercício 3–5 dias/semana','1.55'],['ativo','💪','Muito ativo','Exercício 6–7 dias/semana','1.725'],['ext','🔥','Extremamente ativo','Trabalho físico + exercício diário','1.9']].map(([id,em,lb,desc,mult])=>
-          `<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border);background:var(--card);cursor:pointer">
-            <input type="radio" name="activity" value="${mult}" style="accent-color:var(--blue-vivid)">
-            <span style="font-size:16px">${em}</span>
-            <div><div style="font-size:13px;font-weight:700;color:var(--text)">${lb}</div><div style="font-size:11px;color:var(--text-sec)">${desc}</div></div>
-          </label>`).join('')}
-        </div>
-        <button class="btn-primary" style="width:100%" onclick="saveBmr()">Calcular meu gasto diário ✓</button>
-      </div>
-    </div>
-
-    <!-- Objetivo -->
-    <div class="section-card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div>
-          <div class="section-title" style="margin:0">🎯 Meu Objetivo</div>
-          ${hasGoal?`<div style="font-size:11px;color:var(--text-sec);margin-top:2px">${{emagrecer:'Emagrecimento',engordar:'Ganho de Massa',definir:'Definição/Recomposição'}[profile.goal]||''}</div>`:''}
-        </div>
-        <button onclick="toggleGoalForm()" style="min-width:28px;height:28px;border-radius:50%;border:1.5px solid var(--border);background:${hasGoal?'#D1FAE5':'var(--bg)'};color:${hasGoal?'#065F46':'var(--text-sec)'};font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center">${hasGoal?'✓':'+'}</button>
-      </div>
-      <div id="goal-form" style="display:none;margin-bottom:12px;padding:14px;background:var(--bg);border-radius:12px;border:1px solid var(--border)">
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
-          ${[['emagrecer','⬇️','Emagrecer','Déficit calórico'],['engordar','⬆️','Engordar','Superávit calórico'],['definir','🔄','Definir','Recomposição']].map(([id,em,lb,desc])=>
-          `<button onclick="selectGoal('${id}')" id="goal-btn-${id}" style="padding:12px 6px;border-radius:12px;border:1.5px solid var(--border);background:var(--card);cursor:pointer;text-align:center;transition:all .15s">
-            <div style="font-size:22px;margin-bottom:4px">${em}</div>
-            <div style="font-size:12px;font-weight:800;color:var(--text)">${lb}</div>
-            <div style="font-size:10px;color:var(--text-sec)">${desc}</div>
-          </button>`).join('')}
-        </div>
-        <input type="hidden" id="selected-goal" value="${hasGoal?profile.goal:''}">
-        <button class="btn-primary" style="width:100%" onclick="saveGoal()">Salvar Objetivo ✓</button>
-      </div>
-      ${!hasGoal?`<div style="color:var(--text-sec);font-size:13px">Selecione seu objetivo para calcular os macros ideais.</div>`:''}
-      ${hasGoal&&profile.macros?`<div style="background:linear-gradient(135deg,var(--blue-dark),var(--blue-vivid));border-radius:14px;padding:16px">
-        <div style="font-size:11px;font-weight:800;color:rgba(255,255,255,0.7);margin-bottom:10px;letter-spacing:.5px">CONSUMO DIÁRIO RECOMENDADO</div>
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
-          <div style="background:rgba(255,255,255,0.15);border-radius:10px;padding:10px;text-align:center">
-            <div style="font-size:20px;font-weight:900;color:#fff">${profile.macros.calories}</div>
-            <div style="font-size:9px;color:rgba(255,255,255,0.65);margin-top:2px;font-weight:700">KCAL / DIA</div>
-          </div>
-          <div style="background:rgba(255,255,255,0.15);border-radius:10px;padding:10px;text-align:center">
-            <div style="font-size:20px;font-weight:900;color:#fff">${profile.macros.water}ml</div>
-            <div style="font-size:9px;color:rgba(255,255,255,0.65);margin-top:2px;font-weight:700">ÁGUA / DIA</div>
-          </div>
-          <div style="background:rgba(255,255,255,0.15);border-radius:10px;padding:10px;text-align:center">
-            <div style="font-size:20px;font-weight:900;color:#fff">${profile.macros.protein}g</div>
-            <div style="font-size:9px;color:rgba(255,255,255,0.65);margin-top:2px;font-weight:700">PROTEÍNA</div>
-          </div>
-          <div style="background:rgba(255,255,255,0.15);border-radius:10px;padding:10px;text-align:center">
-            <div style="font-size:20px;font-weight:900;color:#fff">${profile.macros.carbs}g</div>
-            <div style="font-size:9px;color:rgba(255,255,255,0.65);margin-top:2px;font-weight:700">CARBOIDRATOS</div>
-          </div>
-        </div>
-        <div style="background:rgba(255,255,255,0.15);border-radius:10px;padding:10px;text-align:center;margin-top:8px">
-          <div style="font-size:18px;font-weight:900;color:#fff">${profile.macros.fat}g <span style="font-size:12px;font-weight:600">de gordura</span></div>
-        </div>
-      </div>`:''}
-    </div>
-  </div>`;
-}
-
-function toggleMeasForm() {
-  const f=document.getElementById('meas-form');
-  if(f) f.style.display=f.style.display==='none'?'block':'none';
-}
-
-function toggleBmrForm() {
-  const f=document.getElementById('bmr-form');
-  if(f) f.style.display=f.style.display==='none'?'block':'none';
-}
-
-function toggleGoalForm() {
-  const f=document.getElementById('goal-form');
-  if(f) f.style.display=f.style.display==='none'?'block':'none';
-}
-
-function saveMeasurements() {
-  const weight=Number(document.getElementById('meas-weight').value);
-  const height=Number(document.getElementById('meas-height').value);
-  if (!weight||!height) { toast('Informe pelo menos peso e altura','error'); return; }
-  const age=Number(document.getElementById('meas-age').value)||0;
-  const sex=document.getElementById('meas-sex').value;
-  const chest=Number(document.getElementById('meas-chest').value)||0;
-  const waist=Number(document.getElementById('meas-waist').value)||0;
-  const hip=Number(document.getElementById('meas-hip').value)||0;
-  const arm=Number(document.getElementById('meas-arm').value)||0;
-  const thigh=Number(document.getElementById('meas-thigh').value)||0;
-  const measurements=loadData('sabolli_measurements')||[];
-  measurements.push({date:todayStr(),weight,height,age,sex,chest,waist,hip,arm,thigh});
-  saveData('sabolli_measurements',measurements);
-  const profile=loadData('sabolli_nutrition_profile')||{};
-  profile.age=age; profile.sex=sex; profile.weight=weight; profile.height=height;
-  saveData('sabolli_nutrition_profile',profile);
-  toast('Medidas salvas! 📏');
-  currentEvoTab='alimentacao';
-  refreshEvoDash();
-}
-
-function saveBmr() {
-  const actEl=document.querySelector('input[name="activity"]:checked');
-  if (!actEl) { toast('Selecione seu nível de atividade','error'); return; }
-  const actMult=Number(actEl.value);
-  const profile=loadData('sabolli_nutrition_profile')||{};
-  const measurements=loadData('sabolli_measurements')||[];
-  const lm=measurements.length>0?measurements[measurements.length-1]:null;
-  const weight=profile.weight||lm?.weight||70;
-  const height=profile.height||lm?.height||170;
-  const age=profile.age||lm?.age||25;
-  const sex=profile.sex||lm?.sex||'M';
-  const bmr=sex==='M'?Math.round(10*weight+6.25*height-5*age+5):Math.round(10*weight+6.25*height-5*age-161);
-  const tdee=Math.round(bmr*actMult);
-  profile.bmr=bmr; profile.tdee=tdee; profile.activityLevel=actMult;
-  saveData('sabolli_nutrition_profile',profile);
-  toast('TMB: '+bmr+' kcal · TDEE: '+tdee+' kcal ✓');
-  currentEvoTab='alimentacao';
-  refreshEvoDash();
-}
-
-function selectGoal(goalId) {
-  document.getElementById('selected-goal').value=goalId;
-  ['emagrecer','engordar','definir'].forEach(g=>{
-    const btn=document.getElementById('goal-btn-'+g);
-    if (!btn) return;
-    if (g===goalId) { btn.style.background='var(--blue-vivid)'; btn.style.borderColor='var(--blue-vivid)'; }
-    else { btn.style.background='var(--card)'; btn.style.borderColor='var(--border)'; }
-  });
-}
-
-function saveGoal() {
-  const goal=document.getElementById('selected-goal').value;
-  if (!goal) { toast('Selecione um objetivo','error'); return; }
-  const profile=loadData('sabolli_nutrition_profile')||{};
-  if (!profile.tdee) { toast('Calcule o metabolismo basal primeiro','error'); return; }
-  const weight=profile.weight||70;
-  const tdee=profile.tdee;
-  let calories,protein,carbs,fat;
-  if (goal==='emagrecer') {
-    calories=tdee-500; protein=Math.round(weight*2.2); fat=Math.round(weight*0.8);
-    carbs=Math.round((calories-protein*4-fat*9)/4);
-  } else if (goal==='engordar') {
-    calories=tdee+300; protein=Math.round(weight*1.8); fat=Math.round(weight*1.0);
-    carbs=Math.round((calories-protein*4-fat*9)/4);
-  } else {
-    calories=tdee; protein=Math.round(weight*2.4); fat=Math.round(weight*0.9);
-    carbs=Math.round((calories-protein*4-fat*9)/4);
-  }
-  carbs=Math.max(carbs,50);
-  const water=Math.round(weight*38);
-  profile.goal=goal; profile.macros={calories,protein,carbs,fat,water};
-  saveData('sabolli_nutrition_profile',profile);
-  toast('Objetivo e macros salvos! 🎯');
-  currentEvoTab='alimentacao';
-  refreshEvoDash();
-}
-
-// ===== EXERCÍCIOS LEGADOS (removidos, usando sabolli_program_exercises) =====
-function _unused_exercises() {
-  const exercises = loadData('sabolli_exercises') || [];
 }
 
 // ===== TEMAS =====

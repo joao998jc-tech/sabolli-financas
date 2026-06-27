@@ -786,6 +786,81 @@ svg.bar-chart { width: 100%; overflow: visible; }
 .ac-limit { font-size: 10px; opacity: 0.6; margin-top: 2px; }
 .ac-closedue { font-size: 10px; opacity: 0.5; margin-top: 1px; }
 .card-brand-logo { position: absolute; bottom: 12px; right: 12px; }
+
+/* ===== NFC / GOOGLE WALLET BUTTON ===== */
+.nfc-btn {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s, box-shadow 0.15s;
+  background: rgba(255,255,255,0.18);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+}
+.nfc-btn:active { transform: scale(0.92); }
+.nfc-btn.linked {
+  background: rgba(16,185,129,0.85);
+  box-shadow: 0 0 0 3px rgba(16,185,129,0.35);
+}
+.nfc-btn svg { width: 18px; height: 18px; }
+
+/* ===== MODAL GOOGLE WALLET ===== */
+.gw-modal-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.55);
+  display: flex; align-items: flex-end; justify-content: center;
+  animation: fadeIn 0.18s ease;
+}
+.gw-modal {
+  background: var(--card);
+  border-radius: 20px 20px 0 0;
+  padding: 24px 20px 32px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.18);
+  animation: slideUp 0.22s cubic-bezier(.32,1.2,.6,1);
+}
+.gw-modal-title { font-size: 17px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+.gw-modal-sub { font-size: 13px; color: var(--text-sec); margin-bottom: 20px; }
+.gw-card-preview {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  margin-bottom: 18px;
+  color: #fff;
+  font-weight: 700;
+}
+.gw-card-preview svg { width: 28px; height: 28px; opacity: 0.9; flex-shrink: 0; }
+.gw-btn-yes {
+  width: 100%; padding: 14px;
+  background: #10B981; color: #fff;
+  border: none; border-radius: 12px;
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  margin-bottom: 10px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.gw-btn-add {
+  width: 100%; padding: 13px;
+  background: #1a73e8; color: #fff;
+  border: none; border-radius: 12px;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  margin-bottom: 10px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.gw-btn-cancel {
+  width: 100%; padding: 11px;
+  background: transparent; color: var(--text-sec);
+  border: 1.5px solid var(--border); border-radius: 12px;
+  font-size: 14px; cursor: pointer;
+}
 .month-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .month-nav-btn { padding: 6px 14px; border-radius: 8px; border: 1.5px solid var(--border); background: #fff; font-size: 13px; cursor: pointer; font-weight: 600; }
 .month-nav-label { flex: 1; text-align: center; font-size: 15px; font-weight: 700; color: var(--blue-vivid); }
