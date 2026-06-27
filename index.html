@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1E3A8A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sabolli">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<title>SABOLLI FINANÇAS</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="app">
+  <!-- LEFT SIDEBAR — Finanças Pessoais (Azul e Branco) -->
+  <aside id="sidebar-personal">
+    <div class="sb-header sb-header-personal">
+      <div class="sidebar-logo" onclick="navigateTo('dashboard');closeAllSidebars()" style="cursor:pointer" title="Dashboard Pessoal">
+        <div class="logo-icon">💰</div>
+        <div class="logo-text">
+          <span class="logo-name">FINANÇAS</span>
+          <span class="logo-sub">PESSOAIS</span>
+        </div>
+      </div>
+      <button class="sb-close-btn" onclick="closeAllSidebars()">✕</button>
+    </div>
+    <nav class="sidebar-nav" id="sidebarNavPersonal"></nav>
+    <div class="sidebar-footer">
+      <p>SABOLLI FINANÇAS v2.0</p>
+      <p>© 2026 Todos os direitos reservados</p>
+    </div>
+  </aside>
+
+  <!-- RIGHT SIDEBAR — Negócios (Branco e Azul) -->
+  <aside id="sidebar-business">
+    <div class="sb-header sb-header-business">
+      <div class="sidebar-logo" onclick="navigateTo('dashboard');closeAllSidebars()" style="cursor:pointer" title="Dashboard Negócios">
+        <div class="logo-icon logo-icon-biz">🏢</div>
+        <div class="logo-text">
+          <span class="logo-name logo-name-biz">NEGÓCIOS</span>
+          <span class="logo-sub logo-sub-biz">SABOLLI</span>
+        </div>
+      </div>
+      <button class="sb-close-btn sb-close-btn-biz" onclick="closeAllSidebars()">✕</button>
+    </div>
+    <nav class="sidebar-nav" id="sidebarNavBusiness"></nav>
+    <div class="sidebar-footer sidebar-footer-biz">
+      <p>SABOLLI FINANÇAS v2.0</p>
+      <p>© 2026 Todos os direitos reservados</p>
+    </div>
+  </aside>
+
+  <!-- OVERLAY -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeAllSidebars()"></div>
+
+  <!-- MAIN -->
+  <div id="main">
+    <!-- HEADER -->
+    <header class="topbar" id="topbar">
+      <div class="topbar-left">
+        <button class="hamburger hamburger-personal" id="hamburger" onclick="togglePersonalSidebar()" title="Finanças Pessoais">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
+        <div>
+          <h1 class="topbar-title" id="topbarTitle">Dashboard</h1>
+          <p class="topbar-sub" id="topbarSub">Visão geral do seu negócio</p>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div id="fb-user" style="display:flex;align-items:center;gap:6px"></div>
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Alternar modo claro/escuro">🌙</button>
+        <div class="period-filters" id="periodFilters">
+          <button class="pf-btn" onclick="setPeriod('today')">Hoje</button>
+          <button class="pf-btn" onclick="setPeriod('week')">Semana</button>
+          <button class="pf-btn active" onclick="setPeriod('month')">Mês</button>
+          <button class="pf-btn" onclick="setPeriod('year')">Ano</button>
+        </div>
+        <button class="hamburger hamburger-business" onclick="toggleBusinessSidebar()" title="Negócios">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+          </svg>
+        </button>
+        <button class="saldo-btn" id="saldoBtn" onclick="toggleSaldoPanel()" title="Ver saldos e créditos">
+          <span style="font-size:17px;font-weight:900;font-style:italic;line-height:1">$</span>
+          <span class="saldo-dot"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- CONTENT -->
+    <main class="content" id="content"></main>
+  </div>
+</div>
+
+<!-- SALDO PANEL -->
+<div class="saldo-panel" id="saldoPanel"></div>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container" style="position:fixed;bottom:20px;right:16px;left:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:none;"></div>
+
+<script src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
