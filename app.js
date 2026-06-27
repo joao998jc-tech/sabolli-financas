@@ -3430,17 +3430,23 @@ function renderEvoHistorico() {
   const year=currentEvoFilterYear, month=currentEvoFilterMonth;
   const log = loadData('sabolli_workout_log') || {};
   const trainingDays = loadData('sabolli_training_days') || {};
+  const mobilityLog = loadData('sabolli_mobility_log') || {};
+  const absLog = loadData('sabolli_abs_log') || {};
   const exs = loadData('sabolli_program_exercises') || [];
   const monthNames=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const monthKey=`${year}-${String(month+1).padStart(2,'0')}`;
   const trainedDays=Object.keys(trainingDays).filter(d=>d.startsWith(monthKey)).sort();
   const monthDates=Object.keys(log).filter(d=>d.startsWith(monthKey)).sort();
   const totalExCount=monthDates.reduce((s,d)=>s+Object.values(log[d]||{}).filter(v=>v.done).length,0);
+  const mobilityDays=Object.keys(mobilityLog).filter(d=>d.startsWith(monthKey)&&mobilityLog[d]===true).sort();
+  const absDays=Object.keys(absLog).filter(d=>d.startsWith(monthKey)&&absLog[d]===true).sort();
 
   const exerciseProgress=exs.map(ex=>{
     const entries=monthDates.filter(d=>log[d]?.[ex.id]?.done).map(d=>({date:d,...log[d][ex.id]}));
     return {ex,entries};
   }).filter(x=>x.entries.length>0);
+
+  const fmtDay = d => `${d.slice(8)}/${parseInt(d.slice(5,7))}`;
 
   return `<div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -3451,11 +3457,24 @@ function renderEvoHistorico() {
         <button onclick="changeEvoMonth(1)" style="border:none;background:var(--bg);border-radius:6px;padding:6px 12px;cursor:pointer;color:var(--text);font-size:14px">›</button>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px">
       <div class="kpi-mini"><div class="kpi-mini-label">Dias Treino</div><div class="kpi-mini-value" style="color:var(--blue-vivid)">${trainedDays.length}</div></div>
       <div class="kpi-mini"><div class="kpi-mini-label">Exercícios Feitos</div><div class="kpi-mini-value" style="color:#10B981">${totalExCount}</div></div>
-      <div class="kpi-mini"><div class="kpi-mini-label">Exercícios no Plano</div><div class="kpi-mini-value" style="color:#F59E0B">${exerciseProgress.length}</div></div>
+      <div class="kpi-mini"><div class="kpi-mini-label">🧘 Mobilidade</div><div class="kpi-mini-value" style="color:#7C3AED">${mobilityDays.length}</div></div>
+      <div class="kpi-mini"><div class="kpi-mini-label">💪 Abdominal</div><div class="kpi-mini-value" style="color:#F59E0B">${absDays.length}</div></div>
     </div>
+    ${mobilityDays.length>0||absDays.length>0?`<div class="section-card" style="margin-bottom:10px">
+      <div class="section-title" style="margin-bottom:10px">🧘 Mobilidade & Abdominal</div>
+      ${mobilityDays.length>0?`<div style="margin-bottom:8px">
+        <div style="font-size:12px;font-weight:700;color:#7C3AED;margin-bottom:6px">Mobilidade (${mobilityDays.length} dias)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">${mobilityDays.map(d=>`<span style="background:#7C3AED18;color:#7C3AED;font-size:11px;font-weight:700;padding:3px 9px;border-radius:8px">${fmtDay(d)}</span>`).join('')}</div>
+      </div>`:''}
+      ${absDays.length>0?`<div>
+        <div style="font-size:12px;font-weight:700;color:#F59E0B;margin-bottom:6px">Abdominal (${absDays.length} dias)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">${absDays.map(d=>`<span style="background:#F59E0B18;color:#F59E0B;font-size:11px;font-weight:700;padding:3px 9px;border-radius:8px">${fmtDay(d)}</span>`).join('')}</div>
+      </div>`:''}
+    </div>`:''}
+
     ${exerciseProgress.length>0?`<div class="section-card">
       <div class="section-title" style="margin-bottom:12px">📈 Progressão por Exercício</div>
       ${exerciseProgress.map(({ex,entries})=>{
