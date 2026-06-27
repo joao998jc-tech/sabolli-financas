@@ -1,4 +1,4 @@
-﻿// SABOLLI FINANÇAS v2.0
+﻿// SABOLLI FINANÇAS v2.3
 
 // ===== TEMAS =====
 const APP_THEMES = {
