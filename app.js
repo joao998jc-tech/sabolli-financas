@@ -1810,6 +1810,7 @@ function renderAccounts(c) {
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div class="ac-bank">${a.bank||a.type}</div>
         <div style="display:flex;gap:4px">
+          <button onclick="openEditAccount(${a.id})" title="Editar" style="background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.5);border-radius:6px;color:#fff;padding:3px 7px;cursor:pointer;font-size:11px">✏️</button>
           <button onclick="openAccountColorPicker(${a.id},'${c2}')" title="Editar cor" style="background:rgba(255,255,255,0.2);border:1.5px solid rgba(255,255,255,0.5);border-radius:6px;color:#fff;padding:3px 7px;cursor:pointer;font-size:11px">🎨</button>
           <button onclick="deleteAccount(${a.id})" style="background:rgba(255,255,255,0.15);border:none;border-radius:6px;color:#fff;padding:3px 7px;cursor:pointer;font-size:11px">🗑</button>
         </div>
@@ -2028,6 +2029,57 @@ function deleteAccount(id) {
     toast('Excluído!');
     navigateTo('accounts');
   });
+}
+
+function openEditAccount(id) {
+  const accounts = loadData('sabolli_accounts')||[];
+  const a = accounts.find(x => x.id === id);
+  if (!a) return;
+  const existing = document.getElementById('edit-account-popup');
+  if (existing) existing.remove();
+  const popup = document.createElement('div');
+  popup.id = 'edit-account-popup';
+  popup.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5)';
+  popup.innerHTML = `
+    <div style="background:#fff;border-radius:20px;padding:24px;width:min(340px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+      <div style="font-weight:800;font-size:16px;color:#1E293B;margin-bottom:18px">✏️ Editar Conta</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div>
+          <label style="font-size:12px;font-weight:700;color:#64748B;display:block;margin-bottom:4px">NOME</label>
+          <input id="edit-acc-name" value="${a.name||''}" class="form-input" style="width:100%;box-sizing:border-box" placeholder="Nome da conta">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:#64748B;display:block;margin-bottom:4px">BANCO / INSTITUIÇÃO</label>
+          <input id="edit-acc-bank" value="${a.bank||''}" class="form-input" style="width:100%;box-sizing:border-box" placeholder="Ex: Itaú">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:#64748B;display:block;margin-bottom:4px">SALDO ATUAL (R$)</label>
+          <input id="edit-acc-balance" type="number" step="0.01" value="${a.balance||0}" class="form-input" style="width:100%;box-sizing:border-box" placeholder="0,00">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:20px">
+        <button onclick="saveEditAccount(${id})" class="btn-primary" style="flex:1">Salvar</button>
+        <button onclick="document.getElementById('edit-account-popup').remove()" class="btn-secondary">Cancelar</button>
+      </div>
+    </div>`;
+  popup.addEventListener('click', e => { if (e.target === popup) popup.remove(); });
+  document.body.appendChild(popup);
+  document.getElementById('edit-acc-name').focus();
+}
+
+function saveEditAccount(id) {
+  const accounts = loadData('sabolli_accounts')||[];
+  const idx = accounts.findIndex(a => a.id === id);
+  if (idx === -1) return;
+  const name = (document.getElementById('edit-acc-name').value||'').trim();
+  if (!name) { toast('Informe o nome da conta','error'); return; }
+  accounts[idx].name = name;
+  accounts[idx].bank = document.getElementById('edit-acc-bank').value.trim();
+  accounts[idx].balance = Number(document.getElementById('edit-acc-balance').value)||0;
+  saveData('sabolli_accounts', accounts);
+  document.getElementById('edit-account-popup')?.remove();
+  toast('Conta atualizada!');
+  navigateTo('accounts');
 }
 
 function openAccountColorPicker(id, currentColor) {
