@@ -508,7 +508,7 @@ function setPeriod(p) {
 // ===== DASHBOARD =====
 function renderDashboard(c) {
   const tabsHtml = `<div class="tabs-row">
-    ${[['personal','1','Gestão Pessoal','Finanças pessoais'],['business','2','Negócios','Vendas e financeiro'],['stock','3','Estoque','Controle de insumos']].map(([id,n,t,s])=>`
+    ${[['personal','1','Gestão Pessoal','Finanças pessoais'],['business','2','Negócios','Vendas e financeiro'],['stock','3','Estoque','Controle de insumos'],['evolucao','4','Evolução','Treino e saúde']].map(([id,n,t,s])=>`
     <div class="tab-card${currentTab===id?' active':''}" onclick="switchTab('${id}')">
       <div class="tab-num">${n}</div><div class="tab-text"><span class="tab-title">${t}</span><span class="tab-sub">${s}</span></div>
     </div>`).join('')}
@@ -516,6 +516,7 @@ function renderDashboard(c) {
   let body = '';
   if (currentTab==='business') body = renderBusinessDash();
   else if (currentTab==='personal') body = renderPersonalDash();
+  else if (currentTab==='evolucao') body = renderEvoluçaoDash();
   else body = renderStockDash();
   c.innerHTML = tabsHtml + body;
 }
@@ -2761,6 +2762,207 @@ function deletePlanRule(id) {
     saveData('sabolli_planning', (loadData('sabolli_planning')||[]).filter(r=>r.id!==id));
     navigateTo('planning');
   });
+}
+
+// ===== EVOLUÇÃO / FITNESS =====
+function renderEvoluçaoDash() {
+  const today = todayStr();
+  const exercises = loadData('sabolli_exercises') || [];
+  const log = loadData('sabolli_workout_log') || {};
+  const cardioLog = loadData('sabolli_cardio_log') || {};
+  const trainingDays = loadData('sabolli_training_days') || {};
+  const todayLog = log[today] || {};
+  const todayCardio = cardioLog[today] || 0;
+  const doneCount = Object.keys(todayLog).filter(id => todayLog[id]?.done).length;
+
+  const now = new Date();
+  const year = now.getFullYear(), month = now.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const dayNames = ['D','S','T','Q','Q','S','S'];
+  let calCells = dayNames.map(d=>`<div style="text-align:center;font-size:10px;font-weight:800;color:var(--text-sec);padding:4px 0">${d}</div>`).join('');
+  for (let i = 0; i < firstDay; i++) calCells += `<div></div>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = dateStr === today;
+    const isTrained = trainingDays[dateStr];
+    calCells += `<div onclick="toggleTrainingDay('${dateStr}')" style="position:relative;text-align:center;cursor:pointer;width:36px;height:36px;line-height:36px;border-radius:50%;font-size:13px;font-weight:${isToday?'900':'600'};background:${isToday?'var(--blue-vivid)':'transparent'};color:${isToday?'#fff':'var(--text)'};margin:auto;user-select:none">
+      ${isTrained?`<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:${isToday?'rgba(255,255,255,0.85)':'var(--blue-vivid)'};pointer-events:none">✕</span>`:''}
+      <span style="${isTrained&&!isToday?'opacity:0.25':''}">${d}</span>
+    </div>`;
+  }
+
+  const exerciseCheckHtml = exercises.length === 0
+    ? `<div style="color:var(--text-sec);font-size:13px;padding:8px 0">Nenhum exercício cadastrado. Adicione em "Meu Treino" acima.</div>`
+    : exercises.map(ex => {
+      const exLog = todayLog[ex.id] || {};
+      const done = exLog.done || false;
+      return `<div style="padding:10px 12px;border-radius:12px;background:${done?'var(--blue-vivid)':'var(--bg)'};border:1.5px solid ${done?'var(--blue-vivid)':'var(--border)'};margin-bottom:8px;transition:all .2s">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:${done?'0':'8px'}">
+          <button onclick="toggleExerciseDone(${ex.id})" style="width:28px;height:28px;border-radius:50%;border:2px solid ${done?'rgba(255,255,255,0.8)':'var(--blue-vivid)'};background:${done?'rgba(255,255,255,0.25)':'transparent'};color:${done?'#fff':'var(--blue-vivid)'};font-size:14px;font-weight:900;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">${done?'✓':''}</button>
+          <div style="flex:1">
+            <div style="font-weight:700;font-size:14px;color:${done?'#fff':'var(--text)'}">${ex.name}</div>
+            <div style="font-size:11px;color:${done?'rgba(255,255,255,0.75)':'var(--text-sec)'}">${ex.sets} séries × ${ex.reps}</div>
+          </div>
+          ${done&&exLog.weight?`<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.9)">${exLog.weight}kg</div>`:''}
+        </div>
+        ${!done?`<div style="display:flex;gap:6px">
+          <input type="number" placeholder="Séries" id="log-sets-${ex.id}" value="${exLog.sets||ex.sets}" style="flex:1;padding:7px 6px;border-radius:8px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);font-size:12px;text-align:center">
+          <input type="number" placeholder="Reps" id="log-reps-${ex.id}" value="${exLog.reps||''}" style="flex:1;padding:7px 6px;border-radius:8px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);font-size:12px;text-align:center">
+          <input type="number" placeholder="Peso kg" id="log-weight-${ex.id}" value="${exLog.weight||''}" style="flex:1;padding:7px 6px;border-radius:8px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);font-size:12px;text-align:center">
+          <button onclick="saveExerciseLog(${ex.id})" style="padding:7px 10px;border-radius:8px;background:var(--blue-vivid);border:none;color:#fff;font-size:12px;font-weight:800;cursor:pointer">✓</button>
+        </div>`:''}
+      </div>`;
+    }).join('');
+
+  return `
+  <div style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      <div class="kpi-mini"><div class="kpi-mini-label">Exercícios</div><div class="kpi-mini-value" style="color:var(--blue-vivid)">${doneCount}/${exercises.length}</div></div>
+      <div class="kpi-mini"><div class="kpi-mini-label">Cardio Hoje</div><div class="kpi-mini-value" style="color:#10B981">${todayCardio} min</div></div>
+      <div class="kpi-mini"><div class="kpi-mini-label">Dias Treino</div><div class="kpi-mini-value" style="color:#F59E0B">${Object.keys(trainingDays).length}</div></div>
+    </div>
+
+    <div class="section-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div class="section-title" style="margin:0">📅 ${monthNames[month]} ${year}</div>
+        <div style="font-size:11px;color:var(--text-sec)">Clique num dia para marcar ✕</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;place-items:center">${calCells}</div>
+    </div>
+
+    <div class="section-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="section-title" style="margin:0">💪 Meu Treino</div>
+        <button onclick="toggleMeuTreino()" class="btn-outline" style="font-size:12px;padding:5px 12px">+ Exercício</button>
+      </div>
+      <div id="meu-treino-form" style="display:none;margin-bottom:12px;padding:14px;background:var(--bg);border-radius:12px;border:1px solid var(--border)">
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Nome do Exercício</label><input id="ex-name" class="form-input" placeholder="Ex: Supino Reto"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Séries</label><input id="ex-sets" type="number" class="form-input" placeholder="Ex: 4" min="1"></div>
+          <div class="form-group"><label class="form-label">Repetições</label><input id="ex-reps" class="form-input" placeholder="Ex: 12 ou 8-12"></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-primary" style="flex:1" onclick="saveExercise()">Salvar</button>
+          <button class="btn-secondary" onclick="toggleMeuTreino()">Cancelar</button>
+        </div>
+      </div>
+      ${exercises.length === 0
+        ? `<div style="color:var(--text-sec);font-size:13px;padding:4px 0">Nenhum exercício. Clique em "+ Exercício" para adicionar.</div>`
+        : `<div style="display:flex;flex-direction:column;gap:6px">${exercises.map(ex=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--bg);border:1px solid var(--border)">
+            <span style="font-size:18px">🏋️</span>
+            <div style="flex:1"><div style="font-weight:700;font-size:13px;color:var(--text)">${ex.name}</div><div style="font-size:11px;color:var(--text-sec)">${ex.sets} séries × ${ex.reps}</div></div>
+            <button onclick="deleteExercise(${ex.id})" style="background:none;border:none;color:var(--text-sec);font-size:16px;cursor:pointer;padding:2px 6px">🗑</button>
+          </div>`).join('')}</div>`}
+    </div>
+
+    <div class="section-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="section-title" style="margin:0">✅ Check do Dia</div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-sec)">${today.split('-').reverse().join('/')}</div>
+      </div>
+      ${exerciseCheckHtml}
+    </div>
+
+    <div class="section-card">
+      <div class="section-title" style="margin-bottom:14px">🏃 Cardio</div>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <div style="flex:1;min-width:120px"><label class="form-label">Minutos hoje</label><input type="number" id="cardio-min" class="form-input" placeholder="Ex: 30" value="${todayCardio||''}"></div>
+        <div style="flex:1;min-width:120px"><label class="form-label">Tipo</label>
+          <select id="cardio-type" class="form-select"><option>Corrida</option><option>Bicicleta</option><option>Elíptico</option><option>Pular corda</option><option>Caminhada</option><option>Outro</option></select>
+        </div>
+        <button onclick="saveCardio()" class="btn-primary" style="padding:10px 20px">Salvar</button>
+      </div>
+      ${todayCardio>0?`<div style="margin-top:12px;padding:10px 14px;background:var(--bg);border-radius:10px;border:1px solid var(--border);font-size:13px;color:var(--text)">🏅 Hoje: <strong style="color:#10B981">${todayCardio} min</strong> de cardio</div>`:''}
+    </div>
+
+    <div class="section-card" style="border:2px dashed var(--border)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div class="section-title" style="margin:0">🥗 Alimentação</div>
+        <span style="background:var(--border);color:var(--text-sec);font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px">EM BREVE</span>
+      </div>
+      <div style="padding:24px;text-align:center">
+        <div style="font-size:36px;margin-bottom:8px">🥗</div>
+        <div style="font-size:13px;color:var(--text-sec);font-weight:600">Controle de alimentação e macros</div>
+        <div style="font-size:12px;color:var(--text-sec);margin-top:4px">Será implementado em breve</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleMeuTreino() {
+  const f = document.getElementById('meu-treino-form');
+  if (f) f.style.display = f.style.display==='none'?'block':'none';
+}
+
+function saveExercise() {
+  const name = (document.getElementById('ex-name').value||'').trim();
+  const sets = Number(document.getElementById('ex-sets').value)||3;
+  const reps = (document.getElementById('ex-reps').value||'12').trim();
+  if (!name) { toast('Informe o nome do exercício','error'); return; }
+  const exercises = loadData('sabolli_exercises') || [];
+  exercises.push({ id: nextId(exercises), name, sets, reps });
+  saveData('sabolli_exercises', exercises);
+  toast('Exercício adicionado!');
+  switchTab('evolucao');
+  renderPage(document.getElementById('content'), 'dashboard');
+}
+
+function deleteExercise(id) {
+  const exercises = (loadData('sabolli_exercises')||[]).filter(e => e.id !== id);
+  saveData('sabolli_exercises', exercises);
+  switchTab('evolucao');
+  renderPage(document.getElementById('content'), 'dashboard');
+}
+
+function saveExerciseLog(exId) {
+  const today = todayStr();
+  const log = loadData('sabolli_workout_log') || {};
+  if (!log[today]) log[today] = {};
+  const sets = Number(document.getElementById(`log-sets-${exId}`)?.value)||0;
+  const reps = Number(document.getElementById(`log-reps-${exId}`)?.value)||0;
+  const weight = Number(document.getElementById(`log-weight-${exId}`)?.value)||0;
+  log[today][exId] = { sets, reps, weight, done: true };
+  saveData('sabolli_workout_log', log);
+  toast('Registrado! 💪');
+  switchTab('evolucao');
+  renderPage(document.getElementById('content'), 'dashboard');
+}
+
+function toggleExerciseDone(exId) {
+  const today = todayStr();
+  const log = loadData('sabolli_workout_log') || {};
+  if (!log[today]) log[today] = {};
+  if (log[today][exId]?.done) delete log[today][exId];
+  else log[today][exId] = { done: true };
+  saveData('sabolli_workout_log', log);
+  switchTab('evolucao');
+  renderPage(document.getElementById('content'), 'dashboard');
+}
+
+function saveCardio() {
+  const min = Number(document.getElementById('cardio-min')?.value)||0;
+  if (!min) { toast('Informe os minutos de cardio','error'); return; }
+  const today = todayStr();
+  const log = loadData('sabolli_cardio_log') || {};
+  log[today] = min;
+  saveData('sabolli_cardio_log', log);
+  toast(`${min} min de cardio salvo! 🏃`);
+  switchTab('evolucao');
+  renderPage(document.getElementById('content'), 'dashboard');
+}
+
+function toggleTrainingDay(dateStr) {
+  const days = loadData('sabolli_training_days') || {};
+  if (days[dateStr]) delete days[dateStr];
+  else days[dateStr] = true;
+  saveData('sabolli_training_days', days);
+  switchTab('evolucao');
+  renderPage(document.getElementById('content'), 'dashboard');
 }
 
 // ===== TEMAS =====
