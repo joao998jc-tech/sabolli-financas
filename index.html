@@ -54,7 +54,7 @@
     <nav class="sidebar-nav" id="sidebarNavPersonal"></nav>
     <div class="sidebar-footer">
       <button onclick="forceUpdate()" style="width:100%;margin-bottom:8px;padding:8px;border-radius:10px;border:1.5px solid #BFDBFE;background:#EFF6FF;color:#2563EB;font-size:13px;font-weight:700;cursor:pointer">🔄 Atualizar App</button>
-      <p>SABOLLI FINANÇAS v2.3</p>
+      <p>SABOLLI FINANÇAS v2.7</p>
       <p>© 2026 Todos os direitos reservados</p>
     </div>
   </aside>
@@ -74,7 +74,7 @@
     <nav class="sidebar-nav" id="sidebarNavBusiness"></nav>
     <div class="sidebar-footer sidebar-footer-biz">
       <button onclick="forceUpdate()" style="width:100%;margin-bottom:8px;padding:8px;border-radius:10px;border:1.5px solid #BFDBFE;background:rgba(255,255,255,0.15);color:#fff;font-size:13px;font-weight:700;cursor:pointer">🔄 Atualizar App</button>
-      <p>SABOLLI FINANÇAS v2.3</p>
+      <p>SABOLLI FINANÇAS v2.7</p>
       <p>© 2026 Todos os direitos reservados</p>
     </div>
   </aside>
@@ -130,20 +130,66 @@
 <!-- TOAST CONTAINER -->
 <div id="toast-container" style="position:fixed;bottom:20px;right:16px;left:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:none;"></div>
 
+<!-- BANNER DE ATUALIZAÇÃO -->
+<div id="update-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:99999;background:linear-gradient(90deg,#1E3A8A,#2563EB);color:#fff;padding:14px 16px;display:none;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 -4px 20px rgba(0,0,0,0.3)">
+  <div style="display:flex;align-items:center;gap:10px;flex:1">
+    <span style="font-size:22px">🚀</span>
+    <div>
+      <div style="font-size:14px;font-weight:800">Nova versão disponível!</div>
+      <div style="font-size:12px;opacity:0.8">Atualize para ter as últimas melhorias</div>
+    </div>
+  </div>
+  <button id="update-btn" onclick="applyUpdate()" style="background:#fff;color:#1E3A8A;border:none;border-radius:12px;padding:10px 18px;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0">Atualizar agora</button>
+</div>
+
 <script src="app.js"></script>
 <script type="module" src="firebase-init.js"></script>
 <script>
+  let _waitingSW = null;
+
+  window.applyUpdate = function() {
+    const btn = document.getElementById('update-btn');
+    if (btn) { btn.textContent = 'Atualizando...'; btn.disabled = true; }
+    if (_waitingSW) {
+      _waitingSW.postMessage({ type: 'SKIP_WAITING' });
+    } else {
+      // Fallback: limpa caches e recarrega
+      if ('caches' in window) {
+        caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => location.reload(true));
+      } else {
+        location.reload(true);
+      }
+    }
+  };
+
+  function showUpdateBanner() {
+    const banner = document.getElementById('update-banner');
+    if (banner) banner.style.display = 'flex';
+  }
+
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js').then(reg => {
+        // Verifica se já tem um SW aguardando ao abrir (atualização instalada mas não aplicada)
+        if (reg.waiting) {
+          _waitingSW = reg.waiting;
+          showUpdateBanner();
+        }
+
         reg.addEventListener('updatefound', () => {
           const sw = reg.installing;
+          if (!sw) return;
           sw.addEventListener('statechange', () => {
-            if (sw.state === 'activated') window.location.reload();
+            if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+              // Nova versão instalada e esperando — mostra banner para o usuário decidir
+              _waitingSW = sw;
+              showUpdateBanner();
+            }
           });
         });
       }).catch(() => {});
 
+      // Quando o SW novo ativa (após skipWaiting), recarrega a página
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         window.location.reload();
       });

@@ -1,4 +1,4 @@
-﻿// SABOLLI FINANÇAS v2.3
+﻿// SABOLLI FINANÇAS v2.7
 
 // ===== TEMAS =====
 const APP_THEMES = {
@@ -532,9 +532,12 @@ function renderBusinessDash() {
   const fatBruto = filtered.reduce((s,o)=>s+(o.total||0),0);
   const totalPedidos = filtered.length;
   const ticketMedio = totalPedidos>0 ? fatBruto/totalPedidos : 0;
-  const aReceber = filtered.filter(o=>o.status==='Pendente').reduce((s,o)=>s+(o.total||0),0);
-  const entradas = filteredTxs.filter(t=>t.type==='entrada').reduce((s,t)=>s+(t.value||0),0);
-  const saidas = filteredTxs.filter(t=>t.type==='saída').reduce((s,t)=>s+(t.value||0),0);
+  const aReceberPedidos = filtered.filter(o=>o.status==='Pendente').reduce((s,o)=>s+(o.total||0),0);
+  const aReceberTxs = filteredTxs.filter(t=>t.status==='a_receber').reduce((s,t)=>s+(t.value||0),0);
+  const aReceber = aReceberPedidos + aReceberTxs;
+  const aPagar = filteredTxs.filter(t=>t.status==='a_pagar').reduce((s,t)=>s+(t.value||0),0);
+  const entradas = filteredTxs.filter(t=>t.type==='entrada'&&(!t.status||t.status==='realizado')).reduce((s,t)=>s+(t.value||0),0);
+  const saidas = filteredTxs.filter(t=>t.type==='saída'&&(!t.status||t.status==='realizado')).reduce((s,t)=>s+(t.value||0),0);
   const cmv = fatBruto*0.438;
   const lucroBruto = fatBruto - cmv;
 
@@ -556,13 +559,13 @@ function renderBusinessDash() {
   <div class="kpi-row">
     ${kpiCard('Faturamento',fmt(fatBruto),'💲','#EFF6FF','#2563EB',`${totalPedidos} pedidos`)}
     ${kpiCard('Ticket Médio',fmt(ticketMedio),'🎫','#FFF7ED','#F97316',`${totalPedidos} pedidos`)}
-    ${kpiCard('CMV Estimado',fmt(cmv),'📊','#F5F3FF','#7C3AED','43,8% do fat.')}
-    ${kpiCard('A Receber',fmt(aReceber),'⏳','#FEF2F2','#EF4444','Pendente')}
+    ${kpiCard('A Receber',fmt(aReceber),'⏳','#FFFBEB','#B45309','Pendente')}
+    ${kpiCard('A Pagar',fmt(aPagar),'⚠️','#FEF2F2','#EF4444','Futuras saídas')}
   </div>
   <div class="sec-indicators">
     <div class="sec-block"><div class="sec-label">Lucro Bruto Est.</div><div class="sec-value" style="color:#10B981">${fmt(lucroBruto)}</div><div class="sec-sub">56,2% do faturamento</div></div>
-    <div class="sec-block"><div class="sec-label">Entradas</div><div class="sec-value" style="color:#2563EB">${fmt(entradas)}</div><div class="sec-sub">Período atual</div></div>
-    <div class="sec-block"><div class="sec-label">Saídas</div><div class="sec-value" style="color:#EF4444">${fmt(saidas)}</div><div class="sec-sub">Período atual</div></div>
+    <div class="sec-block"><div class="sec-label">Entradas</div><div class="sec-value" style="color:#2563EB">${fmt(entradas)}</div><div class="sec-sub">Realizadas</div></div>
+    <div class="sec-block"><div class="sec-label">Saídas</div><div class="sec-value" style="color:#EF4444">${fmt(saidas)}</div><div class="sec-sub">Realizadas</div></div>
     <div class="sec-block"><div class="sec-label">Estoque Alerta</div><div class="sec-value" style="color:#F97316">${alertCount} itens</div><div class="sec-sub">Abaixo do mínimo</div></div>
   </div>
   <div class="charts-row">
@@ -593,8 +596,9 @@ function renderBusinessDash() {
     <div class="card">
       <div class="card-header"><div class="card-title">Resumo Financeiro</div></div>
       <div class="fin-label">Total Recebido</div><div class="fin-value green">${fmt(entradas)}</div>
-      <div class="fin-label">A Receber</div><div class="fin-value yellow">${fmt(aReceber)}</div>
+      <div class="fin-label">⏳ A Receber</div><div class="fin-value yellow">${fmt(aReceber)}</div>
       <div class="fin-label">Total de Saídas</div><div class="fin-value red">${fmt(saidas)}</div>
+      <div class="fin-label">⚠️ A Pagar</div><div class="fin-value red">${fmt(aPagar)}</div>
     </div>
   </div>`;
 }
@@ -603,8 +607,10 @@ function renderPersonalDash() {
   if (!currentPersonalMonth) currentPersonalMonth = currentMonthStr();
   const txs = loadData('sabolli_financial_transactions')||[];
   const monthTxs = txs.filter(t=>t.date&&t.date.startsWith(currentPersonalMonth));
-  const ent = monthTxs.filter(t=>t.type==='entrada').reduce((s,t)=>s+(t.value||0),0);
-  const sai = monthTxs.filter(t=>t.type==='saída').reduce((s,t)=>s+(t.value||0),0);
+  const ent = monthTxs.filter(t=>t.type==='entrada'&&(!t.status||t.status==='realizado')).reduce((s,t)=>s+(t.value||0),0);
+  const sai = monthTxs.filter(t=>t.type==='saída'&&(!t.status||t.status==='realizado')).reduce((s,t)=>s+(t.value||0),0);
+  const persAReceber = monthTxs.filter(t=>t.status==='a_receber').reduce((s,t)=>s+(t.value||0),0);
+  const persAPagar = monthTxs.filter(t=>t.status==='a_pagar').reduce((s,t)=>s+(t.value||0),0);
   const saldo = ent-sai;
   const accs = loadData('sabolli_accounts')||[];
   const totalAcc = accs.filter(a=>a.type!=='cartão').reduce((s,a)=>s+(a.balance||0),0);
@@ -629,10 +635,22 @@ function renderPersonalDash() {
   </div>
   <div class="kpi-row">
     ${kpiCard('Saldo em Contas',fmt(totalAcc),'💳','#EFF6FF','#2563EB','Contas e dinheiro')}
-    ${kpiCard('Entradas',fmt(ent),'📈','#F0FDF4','#10B981',fmtMonth(currentPersonalMonth))}
-    ${kpiCard('Saídas',fmt(sai),'📉','#FEF2F2','#EF4444',fmtMonth(currentPersonalMonth))}
+    ${kpiCard('Entradas',fmt(ent),'📈','#F0FDF4','#10B981','Realizadas')}
+    ${kpiCard('Saídas',fmt(sai),'📉','#FEF2F2','#EF4444','Realizadas')}
     ${kpiCard('Resultado',fmt(saldo),saldo>=0?'📊':'⚠️','#F5F3FF','#7C3AED','Entradas − Saídas')}
   </div>
+  ${(persAReceber>0||persAPagar>0)?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+    <div style="background:#FFFBEB;border:1.5px solid #FDE68A;border-radius:12px;padding:12px 16px">
+      <div style="font-size:11px;font-weight:700;color:#92400E;margin-bottom:2px">⏳ A Receber</div>
+      <div style="font-size:20px;font-weight:800;color:#B45309">${fmt(persAReceber)}</div>
+      <div style="font-size:11px;color:#92400E">${fmtMonth(currentPersonalMonth)}</div>
+    </div>
+    <div style="background:#FEF2F2;border:1.5px solid #FECACA;border-radius:12px;padding:12px 16px">
+      <div style="font-size:11px;font-weight:700;color:#991B1B;margin-bottom:2px">⚠️ A Pagar</div>
+      <div style="font-size:20px;font-weight:800;color:#DC2626">${fmt(persAPagar)}</div>
+      <div style="font-size:11px;color:#991B1B">${fmtMonth(currentPersonalMonth)}</div>
+    </div>
+  </div>`:''}
   <div class="charts-row">
     <div class="card">
       <div class="card-header"><div class="card-title">Contas e Cartões</div><button class="card-link" onclick="navigateTo('accounts')">Ver todas →</button></div>
@@ -1513,11 +1531,17 @@ function renderTransactions(c) {
       <div class="chip active" id="tx-tipo-btn-entrada" onclick="setTxTipo('entrada')">📈 Entrada</div>
       <div class="chip" id="tx-tipo-btn-saída" onclick="setTxTipo('saída')">📤 Saída</div>
     </div>
+    <div class="chip-row" style="margin-bottom:6px">
+      <div class="chip active" id="tx-status-btn-realizado" onclick="setTxStatus('realizado')" style="background:#F0FDF4;color:#15803D;border-color:#BBF7D0">✅ Realizado</div>
+      <div class="chip" id="tx-status-btn-a_receber" onclick="setTxStatus('a_receber')" style="">⏳ A receber</div>
+      <div class="chip" id="tx-status-btn-a_pagar" onclick="setTxStatus('a_pagar')" style="">⚠️ A pagar</div>
+    </div>
     <div class="chip-row">
       <div class="chip active" id="tx-ext-btn-negocio" onclick="setTxExtract('negocio')" style="background:#EFF6FF;color:#2563EB;border-color:#BFDBFE">🏢 Negócio</div>
       <div class="chip" id="tx-ext-btn-pessoal" onclick="setTxExtract('pessoal')" style="">👤 Pessoal</div>
     </div>
     <input type="hidden" id="tx-tipo" value="entrada">
+    <input type="hidden" id="tx-status" value="realizado">
     <input type="hidden" id="tx-extract" value="negocio">
     <div class="form-group"><label class="form-label">Descrição</label><input id="tx-desc" class="form-input" type="text" placeholder="Ex: Vendas do dia, Mercado, Aluguel..."></div>
     <div class="form-row">
@@ -1552,6 +1576,9 @@ function renderTransactions(c) {
       <span>🚴 Total acumulado de taxas de entrega:</span>
       <span id="tx-delivery-total-display">${fmt(loadData('sabolli_delivery_total')||0)}</span>
     </div>
+    <div id="tx-pending-hint" style="display:none;background:#FFFBEB;border:1.5px solid #FDE68A;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:600;color:#92400E;margin-bottom:0">
+      ⚠️ Lançamentos pendentes <strong>não atualizam</strong> o saldo das contas até serem marcados como realizados.
+    </div>
     <button class="btn-primary" onclick="saveTransaction()">💾 Salvar Lançamento</button>
   </div>
   <div class="section-card">
@@ -1559,10 +1586,14 @@ function renderTransactions(c) {
     ${txs.length===0?'<div class="empty-state"><div class="empty-icon">💰</div><p>Nenhum lançamento</p></div>':
     [...txs].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,20).map(t=>{
       const accLabel = getAccountLabel(t.accountId);
+      const isPending = t.status==='a_receber'||t.status==='a_pagar';
+      const icoWrapBg = t.status==='a_receber'?'#FFFBEB':t.status==='a_pagar'?'#FEF2F2':(t.type==='entrada'?'#F0FDF4':'#FEF2F2');
+      const ico = t.status==='a_receber'?'⏳':t.status==='a_pagar'?'⚠️':(t.type==='entrada'?'📈':'📤');
+      const statusTag = isPending ? txStatusBadge(t) : (accLabel?`<span style="color:#7C3AED;font-size:11px">${accLabel}</span>`:`<span style="color:#F59E0B;font-size:10px">⚠ sem conta</span>`);
       return `
-      <div class="tx-item">
-        <div class="tx-ico-wrap" style="background:${t.type==='entrada'?'#F0FDF4':'#FEF2F2'}">${t.type==='entrada'?'📈':'📤'}</div>
-        <div class="tx-info" style="flex:1"><div class="tx-desc">${t.desc}${t.deliveryFee?` <span style="font-size:10px;background:#D1FAE5;color:#065F46;border-radius:4px;padding:1px 5px;font-weight:700">🚴 +${fmt(t.deliveryFee)}</span>`:''}</div><div class="tx-date">${fmtDate(t.date)} · ${t.category||''}${accLabel?' · <span style="color:#7C3AED;font-size:11px">'+accLabel+'</span>':' · <span style="color:#F59E0B;font-size:10px">⚠ sem conta</span>'}</div></div>
+      <div class="tx-item" style="${isPending?'border-left:3px solid '+(t.status==='a_receber'?'#F59E0B':'#EF4444')+';padding-left:10px;opacity:0.88':''}">
+        <div class="tx-ico-wrap" style="background:${icoWrapBg}">${ico}</div>
+        <div class="tx-info" style="flex:1"><div class="tx-desc">${t.desc}${t.deliveryFee?` <span style="font-size:10px;background:#D1FAE5;color:#065F46;border-radius:4px;padding:1px 5px;font-weight:700">🚴 +${fmt(t.deliveryFee)}</span>`:''}</div><div class="tx-date" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">${fmtDate(t.date)} · ${t.category||''} ${statusTag}</div></div>
         <div style="display:flex;align-items:center;gap:8px">
           <div class="tx-amount ${t.type==='entrada'?'inc':'exp'}">${t.type==='entrada'?'+':'-'}${fmt(t.value)}</div>
           <button class="btn-danger" onclick="deleteTx(${t.id})" style="padding:4px 8px">🗑</button>
@@ -1596,6 +1627,31 @@ function setTxExtract(ext) {
   });
 }
 
+function setTxStatus(status) {
+  document.getElementById('tx-status').value = status;
+  const styles = {
+    realizado: { bg:'#F0FDF4', color:'#15803D', border:'#BBF7D0' },
+    a_receber: { bg:'#FFFBEB', color:'#B45309', border:'#FDE68A' },
+    a_pagar:   { bg:'#FEF2F2', color:'#DC2626', border:'#FECACA' },
+  };
+  ['realizado','a_receber','a_pagar'].forEach(s=>{
+    const btn = document.getElementById('tx-status-btn-'+s);
+    if (!btn) return;
+    if (s===status) {
+      btn.classList.add('active');
+      btn.style.background=styles[s].bg; btn.style.color=styles[s].color; btn.style.borderColor=styles[s].border;
+    } else {
+      btn.classList.remove('active');
+      btn.style.background=''; btn.style.color=''; btn.style.borderColor='';
+    }
+  });
+  // Conta só disponível se realizado
+  const accGroup = document.getElementById('tx-account') ? document.getElementById('tx-account').closest('.form-group') : null;
+  if (accGroup) accGroup.style.opacity = status==='realizado' ? '1' : '0.4';
+  const hint = document.getElementById('tx-pending-hint');
+  if (hint) hint.style.display = status!=='realizado' ? 'block' : 'none';
+}
+
 function toggleDeliveryFee() {
   const cb = document.getElementById('tx-has-delivery');
   const grp = document.getElementById('tx-delivery-fee-group');
@@ -1612,10 +1668,11 @@ function saveTransaction() {
   if (!desc) { toast('Informe a descrição','error'); return; }
   if (!value||value<=0) { toast('Informe o valor','error'); return; }
   const tipo = document.getElementById('tx-tipo').value;
+  const txStatus = (document.getElementById('tx-status')||{}).value || 'realizado';
   const accEl = document.getElementById('tx-account');
   const accountId = accEl && accEl.value ? Number(accEl.value) : null;
   let accName = '';
-  if (accountId) {
+  if (accountId && txStatus === 'realizado') {
     const accs = loadData('sabolli_accounts')||[];
     const acc = accs.find(a => a.id === accountId);
     if (acc) {
@@ -1637,9 +1694,9 @@ function saveTransaction() {
   }
   const extractType = (document.getElementById('tx-extract')||{}).value || 'negocio';
   const txs = loadData('sabolli_financial_transactions')||[];
-  txs.unshift({ id:nextId(txs), date:document.getElementById('tx-date').value||todayStr(), desc, type:tipo, value, category:document.getElementById('tx-cat').value, accountId: accountId||null, extractType, deliveryFee: deliveryFeeAdded||null });
+  txs.unshift({ id:nextId(txs), date:document.getElementById('tx-date').value||todayStr(), desc, type:tipo, value, category:document.getElementById('tx-cat').value, accountId: txStatus==='realizado'?(accountId||null):null, extractType, deliveryFee: deliveryFeeAdded||null, status: txStatus });
   saveData('sabolli_financial_transactions', txs);
-  let msg = 'Lançamento salvo!';
+  let msg = txStatus==='realizado' ? 'Lançamento salvo!' : (txStatus==='a_receber' ? 'A Receber salvo!' : 'A Pagar salvo!');
   if (accName) msg += ` · ${accName} atualizada`;
   if (deliveryFeeAdded > 0) msg += ` · Taxa +${fmt(deliveryFeeAdded)}`;
   toast(msg);
@@ -1665,13 +1722,25 @@ function deleteTx(id) {
 }
 
 // ===== EXTRATO =====
+function txStatusBadge(t) {
+  if (!t.status || t.status==='realizado') return '';
+  if (t.status==='a_receber') return `<span style="font-size:10px;font-weight:700;background:#FFFBEB;color:#B45309;border:1px solid #FDE68A;padding:1px 6px;border-radius:4px">⏳ A receber</span>`;
+  if (t.status==='a_pagar') return `<span style="font-size:10px;font-weight:700;background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;padding:1px 6px;border-radius:4px">⚠️ A pagar</span>`;
+  return '';
+}
+
 function txItemHtml(t, showDelete) {
   const accLabel = getAccountLabel(t.accountId);
-  const accTag = t.accountId
-    ? `<span style="color:#7C3AED;font-size:10px;font-weight:600;background:#F5F3FF;padding:1px 5px;border-radius:4px">${accLabel}</span>`
-    : `<span style="color:#B45309;font-size:10px;font-weight:600;background:#FFFBEB;padding:1px 5px;border-radius:4px">⚠ sem conta</span>`;
-  return `<div class="tx-item">
-    <div class="tx-ico-wrap" style="background:${t.type==='entrada'?'#F0FDF4':'#FEF2F2'}">${t.type==='entrada'?'📈':'📤'}</div>
+  const isPending = t.status==='a_receber'||t.status==='a_pagar';
+  const accTag = isPending
+    ? txStatusBadge(t)
+    : t.accountId
+      ? `<span style="color:#7C3AED;font-size:10px;font-weight:600;background:#F5F3FF;padding:1px 5px;border-radius:4px">${accLabel}</span>`
+      : `<span style="color:#B45309;font-size:10px;font-weight:600;background:#FFFBEB;padding:1px 5px;border-radius:4px">⚠ sem conta</span>`;
+  const icoWrapBg = t.status==='a_receber'?'#FFFBEB':t.status==='a_pagar'?'#FEF2F2':(t.type==='entrada'?'#F0FDF4':'#FEF2F2');
+  const ico = t.status==='a_receber'?'⏳':t.status==='a_pagar'?'⚠️':(t.type==='entrada'?'📈':'📤');
+  return `<div class="tx-item" style="${isPending?'opacity:0.85;border-left:3px solid '+(t.status==='a_receber'?'#F59E0B':'#EF4444')+';padding-left:10px':''}">
+    <div class="tx-ico-wrap" style="background:${icoWrapBg}">${ico}</div>
     <div class="tx-info" style="flex:1">
       <div class="tx-desc">${t.desc}</div>
       <div class="tx-date" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">${fmtDate(t.date)} · ${t.category||''} ${accTag}</div>
@@ -1688,10 +1757,12 @@ function renderExtract(c) {
   const allTxs = loadData('sabolli_financial_transactions')||[];
   const txs = allTxs.filter(t => tab==='pessoal' ? t.extractType==='pessoal' : (t.extractType==='negocio'||!t.extractType));
   const sorted = [...txs].sort((a,b)=>b.date.localeCompare(a.date));
-  const entradas = txs.filter(t=>t.type==='entrada').reduce((s,t)=>s+(t.value||0),0);
-  const saidas = txs.filter(t=>t.type==='saída').reduce((s,t)=>s+(t.value||0),0);
+  const entradas = txs.filter(t=>t.type==='entrada'&&(!t.status||t.status==='realizado')).reduce((s,t)=>s+(t.value||0),0);
+  const saidas = txs.filter(t=>t.type==='saída'&&(!t.status||t.status==='realizado')).reduce((s,t)=>s+(t.value||0),0);
+  const extAReceber = txs.filter(t=>t.status==='a_receber').reduce((s,t)=>s+(t.value||0),0);
+  const extAPagar = txs.filter(t=>t.status==='a_pagar').reduce((s,t)=>s+(t.value||0),0);
   const saldo = entradas-saidas;
-  const unlinked = txs.filter(t=>!t.accountId);
+  const unlinked = txs.filter(t=>!t.accountId&&(!t.status||t.status==='realizado'));
   c.innerHTML = `
   <div class="form-tab-row" style="margin-bottom:14px">
     <button class="form-tab-btn${tab==='negocio'?' active':''}" onclick="switchExtractTab('negocio')">🏢 Negócio</button>
@@ -1701,6 +1772,8 @@ function renderExtract(c) {
     <div class="kpi-mini"><div class="kpi-mini-label">Entradas</div><div class="kpi-mini-value" style="color:#10B981">${fmt(entradas)}</div></div>
     <div class="kpi-mini"><div class="kpi-mini-label">Saídas</div><div class="kpi-mini-value" style="color:#EF4444">${fmt(saidas)}</div></div>
     <div class="kpi-mini"><div class="kpi-mini-label">Saldo</div><div class="kpi-mini-value" style="color:${saldo>=0?'#2563EB':'#EF4444'}">${fmt(saldo)}</div></div>
+    ${extAReceber>0?`<div class="kpi-mini"><div class="kpi-mini-label">⏳ A Receber</div><div class="kpi-mini-value" style="color:#B45309">${fmt(extAReceber)}</div></div>`:''}
+    ${extAPagar>0?`<div class="kpi-mini"><div class="kpi-mini-label">⚠️ A Pagar</div><div class="kpi-mini-value" style="color:#DC2626">${fmt(extAPagar)}</div></div>`:''}
   </div>
   ${unlinked.length>0?`<div style="background:#FFFBEB;border:1.5px solid #F59E0B;border-radius:12px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px">
     <span style="font-size:20px">⚠️</span>
@@ -1714,6 +1787,7 @@ function renderExtract(c) {
     <div class="filter-bar">
       <select class="filter-select" id="ext-type-filter" onchange="filterExtract()">
         <option value="">Todos</option><option value="entrada">Entradas</option><option value="saída">Saídas</option>
+        <option value="a_receber">⏳ A receber</option><option value="a_pagar">⚠️ A pagar</option>
         <option value="unlinked">Sem conta vinculada</option>
       </select>
     </div>
@@ -1753,8 +1827,10 @@ function filterExtract() {
   const txs = allTxs.filter(t => tab==='pessoal' ? t.extractType==='pessoal' : (t.extractType==='negocio'||!t.extractType));
   const filtered = [...txs].filter(t=>{
     if (!tipo) return true;
-    if (tipo==='unlinked') return !t.accountId;
-    return t.type===tipo;
+    if (tipo==='unlinked') return !t.accountId && (!t.status||t.status==='realizado');
+    if (tipo==='a_receber') return t.status==='a_receber';
+    if (tipo==='a_pagar') return t.status==='a_pagar';
+    return t.type===tipo && (!t.status||t.status==='realizado');
   }).sort((a,b)=>b.date.localeCompare(a.date));
   const el = document.getElementById('extract-list');
   if (el) el.innerHTML = filtered.map(t=>txItemHtml(t,true)).join('') || '<div class="empty-state"><div class="empty-icon">📄</div><p>Sem lançamentos</p></div>';
@@ -3372,13 +3448,25 @@ function clearFicha() {
 // ===== ATUALIZAR APP =====
 function forceUpdate() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(regs => {
-      regs.forEach(r => r.unregister());
-      caches.keys().then(keys => {
-        Promise.all(keys.map(k => caches.delete(k))).then(() => {
-          window.location.reload(true);
+    navigator.serviceWorker.getRegistration().then(reg => {
+      if (reg && reg.waiting) {
+        // Tem versão nova esperando — aplica ela
+        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+      } else if (reg) {
+        // Força verificação de atualização
+        reg.update().then(() => {
+          if (reg.waiting) {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          } else {
+            // Nenhuma atualização disponível — limpa cache e recarrega
+            caches.keys().then(keys =>
+              Promise.all(keys.map(k => caches.delete(k)))
+            ).then(() => window.location.reload(true));
+          }
         });
-      });
+      } else {
+        window.location.reload(true);
+      }
     });
   } else {
     window.location.reload(true);

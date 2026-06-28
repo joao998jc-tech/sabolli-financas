@@ -1,5 +1,5 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, collection, getDocs, doc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 window._fbReady = true;
@@ -18,15 +18,42 @@ const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
 const db = getFirestore(fbApp);
 const provider = new GoogleAuthProvider();
+provider.setCustomParameters({ prompt: 'select_account' });
 let currentUid = null;
 
+// Detecta se está em celular/tablet para usar redirect (mais confiável que popup no mobile)
+const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
+const GOOGLE_BTN_HTML = `<svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.34-8.16 2.34-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg> Entrar com Google`;
+
 window.signInWithGoogle = async () => {
+  const btn = document.getElementById('btn-google-login');
   try {
-    const btn = document.getElementById('btn-google-login');
-    if (btn) btn.textContent = 'Aguarde...';
-    await signInWithRedirect(auth, provider);
+    if (btn) { btn.disabled = true; btn.textContent = 'Aguardando...'; }
+
+    if (isMobile) {
+      // Mobile: vai direto pro redirect, sem tentar popup
+      await signInWithRedirect(auth, provider);
+      return;
+    }
+
+    // Desktop: tenta popup primeiro
+    await signInWithPopup(auth, provider);
+    // onAuthStateChanged cuida do resto automaticamente
   } catch(e) {
-    if (window.toast) window.toast('Erro ao entrar: ' + (e.code || e.message), 'error');
+    const code = e.code || '';
+    if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+      if (btn) { btn.disabled = false; btn.innerHTML = GOOGLE_BTN_HTML; }
+      return;
+    }
+    // Popup bloqueado → fallback para redirect
+    if (code === 'auth/popup-blocked') {
+      if (btn) { btn.textContent = 'Redirecionando...'; }
+      try { await signInWithRedirect(auth, provider); } catch(_) {}
+      return;
+    }
+    if (btn) { btn.disabled = false; btn.innerHTML = GOOGLE_BTN_HTML; }
+    if (window.toast) window.toast('Erro ao entrar: ' + (e.message || code), 'error');
   }
 };
 
@@ -96,16 +123,23 @@ function updateUserUI(user) {
     <button onclick="signOutUser()" title="Sair" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:8px;padding:4px 9px;font-size:11px;cursor:pointer;font-weight:600">Sair</button>`;
 }
 
-let visibilityListenerAdded = false;
+// Processa resultado do redirect (login no mobile)
+getRedirectResult(auth)
+  .then(result => {
+    // onAuthStateChanged cuida do estado do usuário após redirect
+    if (result && result.user) {
+      // Usuário acabou de logar via redirect — onAuthStateChanged já vai disparar
+    }
+  })
+  .catch(e => {
+    const code = e.code || '';
+    // Erros comuns de redirect que podem ser ignorados
+    if (code === 'auth/redirect-cancelled-by-user' || code === 'auth/redirect-operation-pending') return;
+    if (window.toast && code) window.toast('Erro ao entrar: ' + code, 'error');
+  });
 
-// Trata o retorno após o redirect do Google
-getRedirectResult(auth).then(result => {
-  if (result && result.user) {
-    // Login via redirect bem-sucedido — onAuthStateChanged cuida do resto
-  }
-}).catch(e => {
-  if (window.toast) window.toast('Erro no login Google: ' + (e.code || e.message), 'error');
-});
+let visibilityListenerAdded = false;
+let appAlreadyStarted = false;
 
 onAuthStateChanged(auth, async user => {
   if (user) {
@@ -113,8 +147,12 @@ onAuthStateChanged(auth, async user => {
     localStorage.removeItem('sabolli_skip_login');
     hideLoginOverlay();
     updateUserUI(user);
-    await loadFromCloud(currentUid);
-    if (window._startApp) window._startApp();
+
+    if (!appAlreadyStarted) {
+      await loadFromCloud(currentUid);
+      appAlreadyStarted = true;
+      if (window._startApp) window._startApp();
+    }
 
     if (!visibilityListenerAdded) {
       visibilityListenerAdded = true;
