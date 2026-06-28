@@ -1,5 +1,5 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, GoogleAuthProvider, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, collection, getDocs, doc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 window._fbReady = true;
@@ -53,6 +53,68 @@ window.signInWithGoogle = async () => {
     const msg = e.message || code || 'Erro desconhecido';
     alert('Erro ao entrar: ' + msg);
   }
+};
+
+// Traduz erros do Firebase para português
+function traduzErro(code) {
+  const erros = {
+    'auth/invalid-email': 'E-mail inválido.',
+    'auth/user-not-found': 'Nenhuma conta com esse e-mail. Crie uma conta primeiro.',
+    'auth/wrong-password': 'Senha incorreta.',
+    'auth/invalid-credential': 'E-mail ou senha incorretos.',
+    'auth/email-already-in-use': 'Esse e-mail já está cadastrado. Faça login.',
+    'auth/weak-password': 'Senha muito fraca. Use pelo menos 6 caracteres.',
+    'auth/too-many-requests': 'Muitas tentativas. Aguarde alguns minutos.',
+    'auth/network-request-failed': 'Sem internet. Verifique sua conexão.',
+  };
+  return erros[code] || 'Erro ao entrar. Tente novamente.';
+}
+
+window.signInEmail = async () => {
+  const email = (document.getElementById('login-email')?.value || '').trim();
+  const pass = document.getElementById('login-pass')?.value || '';
+  const errEl = document.getElementById('login-error');
+  const btn = document.getElementById('btn-email-login');
+  if (errEl) errEl.style.display = 'none';
+  if (!email || !pass) {
+    if (errEl) { errEl.textContent = 'Preencha e-mail e senha.'; errEl.style.display = 'block'; }
+    return;
+  }
+  if (btn) { btn.textContent = 'Entrando...'; btn.disabled = true; }
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch(e) {
+    if (errEl) { errEl.textContent = traduzErro(e.code); errEl.style.display = 'block'; }
+    if (btn) { btn.textContent = 'Entrar'; btn.disabled = false; }
+  }
+};
+
+window.criarConta = async () => {
+  const email = (document.getElementById('reg-email')?.value || '').trim();
+  const pass = document.getElementById('reg-pass')?.value || '';
+  const errEl = document.getElementById('reg-error');
+  const btn = document.getElementById('btn-criar');
+  if (errEl) errEl.style.display = 'none';
+  if (!email || !pass) {
+    if (errEl) { errEl.textContent = 'Preencha e-mail e senha.'; errEl.style.display = 'block'; }
+    return;
+  }
+  if (btn) { btn.textContent = 'Criando...'; btn.disabled = true; }
+  try {
+    await createUserWithEmailAndPassword(auth, email, pass);
+  } catch(e) {
+    if (errEl) { errEl.textContent = traduzErro(e.code); errEl.style.display = 'block'; }
+    if (btn) { btn.textContent = 'Criar conta'; btn.disabled = false; }
+  }
+};
+
+window.toggleCriarConta = () => {
+  const box = document.getElementById('criar-conta-box');
+  if (!box) return;
+  const aberto = box.style.display !== 'none';
+  box.style.display = aberto ? 'none' : 'block';
+  const btn = box.previousElementSibling?.querySelector('button');
+  if (btn) btn.textContent = aberto ? 'Não tem conta? Criar agora →' : 'Já tenho conta';
 };
 
 window.skipLogin = () => {
