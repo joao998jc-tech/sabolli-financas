@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          clean: true
 
       - name: Autenticar no Google Cloud
         uses: google-github-actions/auth@v2
