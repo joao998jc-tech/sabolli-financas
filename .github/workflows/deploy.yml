@@ -24,4 +24,9 @@ jobs:
       - name: Deploy para Firebase Hosting
         run: |
           echo "{\"v\":\"$(date -u +%Y%m%d%H%M%S)\"}" > version.json
-          firebase deploy --only hosting --project sabolli-financas
+          firebase deploy --only hosting --project sabolli-financas 2>&1 | tee /tmp/deploy.log
+          EXIT=${PIPESTATUS[0]}
+          if [ $EXIT -ne 0 ]; then
+            grep -q "current active version" /tmp/deploy.log && echo "Versao ja ativa (OK)" && exit 0
+            exit $EXIT
+          fi
