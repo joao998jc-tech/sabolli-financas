@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'sabolli-widget/**'
+      - '.github/workflows/build-widget.yml'
 
 jobs:
   build:
