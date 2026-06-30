@@ -4,7 +4,18 @@
     "ignore": [
       "firebase.json",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "**/*.bat",
+      "**/*.cmd",
+      "**/*.exe",
+      "**/*.sh",
+      "**/*.ps1",
+      "**/*.py",
+      "**/*.rb",
+      "README.md",
+      "firestore.rules",
+      "auto-push.ps1",
+      "iniciar-auto-push.bat"
     ]
   },
   "firestore": {
