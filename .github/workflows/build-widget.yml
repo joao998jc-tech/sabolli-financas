@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -34,19 +36,28 @@ jobs:
           cp sabolli-widget/app/build/outputs/apk/release/app-release.apk output/sabolli-widget.apk
           echo "APK_PATH=output/sabolli-widget.apk" >> $GITHUB_ENV
 
+      - name: Upload APK como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: sabolli-widget-apk
+          path: output/sabolli-widget.apk
+          retention-days: 90
+
       - name: Criar Release no GitHub
         uses: softprops/action-gh-release@v2
         with:
           tag_name: widget-v${{ github.run_number }}
           name: "Widget Sabolli v${{ github.run_number }}"
           body: |
-            ## Como instalar
+            ## Como instalar o widget nativo Android
+
             1. Baixe o arquivo `sabolli-widget.apk`
-            2. No celular: Configurações → Segurança → **Instalar apps desconhecidos** → ative para o seu navegador/gerenciador de arquivos
+            2. No celular: **Configurações → Segurança → Instalar apps desconhecidos** → ative para o navegador
             3. Abra o APK e instale
-            4. Segure o dedo na tela inicial → Widgets → procure **Sabolli**
+            4. Segure o dedo na tela inicial → **Widgets** → procure **Sabolli**
             5. Arraste o widget para a tela inicial
-            6. Cole o **Código do Widget** que aparece no app (menu → Temas do App → seção Widget)
+            6. Cole o **Código do Widget** (copie do app: menu → Temas do App → seção Widget)
           files: output/sabolli-widget.apk
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
