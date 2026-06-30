@@ -3002,7 +3002,51 @@ function renderTemas(c) {
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px">
       ${cards}
     </div>
+  </div>
+
+  <div class="section-card" style="margin-top:14px">
+    <div class="section-title" style="margin-bottom:4px">📱 Widget da Tela Inicial</div>
+    <div style="font-size:13px;color:var(--text-sec);margin-bottom:16px">Acesse saldos e faça lançamentos rápidos direto da tela do celular, sem abrir o app.</div>
+
+    <div style="background:linear-gradient(135deg,#1E3A8A,#2563EB);border-radius:16px;padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:14px">
+      <div style="width:44px;height:44px;background:rgba(255,255,255,0.18);border:2.5px solid rgba(255,255,255,0.45);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:900;font-style:italic;flex-shrink:0">$</div>
+      <div style="flex:1">
+        <div style="color:#fff;font-size:13px;font-weight:800;margin-bottom:2px">SABOLLI FINANÇAS</div>
+        <div style="color:rgba(255,255,255,0.65);font-size:11px">Saldo · Entrada · Saída</div>
+      </div>
+      <div style="color:#fff;font-size:18px;font-weight:900">↻</div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text)">
+        <span style="width:22px;height:22px;background:#EFF6FF;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#2563EB;flex-shrink:0">1</span>
+        Toque em <strong style="margin:0 3px">"Instalar Widget"</strong> abaixo
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text)">
+        <span style="width:22px;height:22px;background:#EFF6FF;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#2563EB;flex-shrink:0">2</span>
+        Na nova aba, toque nos <strong style="margin:0 3px">⋮ três pontinhos</strong>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text)">
+        <span style="width:22px;height:22px;background:#EFF6FF;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#2563EB;flex-shrink:0">3</span>
+        Escolha <strong style="margin:0 3px">"Adicionar à tela inicial"</strong> e confirme
+      </div>
+    </div>
+
+    <button onclick="instalarWidget()"
+      style="width:100%;padding:15px;border-radius:14px;border:none;background:linear-gradient(135deg,#1E3A8A,#2563EB);color:#fff;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 14px rgba(30,58,138,0.35)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v13m0 0l-4-4m4 4l4-4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+      Instalar Widget
+    </button>
   </div>`;
+}
+
+// ===== INSTALAR WIDGET =====
+function instalarWidget() {
+  const url = location.href.replace(/\/[^/]*$/, '/widget.html');
+  window.open(url, '_blank');
+  setTimeout(() => {
+    toast('Toque nos ⋮ três pontinhos → "Adicionar à tela inicial"');
+  }, 800);
 }
 
 // ===== GERENCIAR CATEGORIAS =====
