@@ -3480,6 +3480,32 @@ function initApp() {
   updateHeader();
   renderPage(document.getElementById('content'), currentSection);
   initTheme();
+  handleWidgetDeepLink();
+}
+
+// ===== WIDGET DEEP LINK =====
+// Verifica se o app foi aberto a partir do widget com um lançamento pré-selecionado
+function handleWidgetDeepLink() {
+  const params = new URLSearchParams(window.location.search);
+  const from = params.get('from');
+  const action = params.get('action');
+  if (from !== 'widget' || !action) return;
+  // Limpa a URL sem reload
+  history.replaceState({}, '', window.location.pathname);
+  // Navega para lançamentos e abre o formulário com o tipo correto
+  setTimeout(() => {
+    navigateTo('transactions');
+    setTimeout(() => {
+      const typeSelect = document.getElementById('tx-type');
+      if (typeSelect && (action === 'entrada' || action === 'saida')) {
+        typeSelect.value = action === 'entrada' ? 'entrada' : 'saída';
+        typeSelect.dispatchEvent(new Event('change'));
+      }
+      // Coloca o foco no campo de valor
+      const valEl = document.getElementById('tx-value');
+      if (valEl) valEl.focus();
+    }, 200);
+  }, 100);
 }
 
 document.addEventListener('DOMContentLoaded', () => {

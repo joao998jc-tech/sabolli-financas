@@ -14,5 +14,28 @@
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Ver Saldo",
+      "short_name": "Saldo",
+      "description": "Consultar saldos e contas",
+      "url": "./widget.html",
+      "icons": [{ "src": "icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Nova Entrada",
+      "short_name": "Entrada",
+      "description": "Registrar nova entrada rápida",
+      "url": "./widget.html?action=entrada",
+      "icons": [{ "src": "icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Nova Saída",
+      "short_name": "Saída",
+      "description": "Registrar nova saída rápida",
+      "url": "./widget.html?action=saida",
+      "icons": [{ "src": "icon.svg", "sizes": "any" }]
+    }
   ]
 }
