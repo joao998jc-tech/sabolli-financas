@@ -3007,6 +3007,14 @@ function renderTemas(c) {
   <div class="section-card" style="margin-top:14px">
     <div class="section-title" style="margin-bottom:4px">📱 Widget da Tela Inicial</div>
     <div style="font-size:13px;color:var(--text-sec);margin-bottom:16px">Acesse saldos e faça lançamentos rápidos direto da tela do celular, sem abrir o app.</div>
+    ${window._currentUid ? `<div style="background:#F0F6FF;border:1.5px solid #BFDBFE;border-radius:12px;padding:12px 14px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:#1E3A8A;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">Código do Widget (Android)</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <code style="font-size:11px;color:#374151;background:#E0EDFF;padding:6px 10px;border-radius:8px;flex:1;word-break:break-all">${window._currentUid}</code>
+        <button onclick="navigator.clipboard.writeText('${window._currentUid}').then(()=>toast('Código copiado!'))" style="padding:6px 12px;border-radius:8px;border:none;background:#2563EB;color:#fff;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">Copiar</button>
+      </div>
+      <div style="font-size:11px;color:#64748B;margin-top:6px">Cole esse código ao adicionar o widget nativo Android.</div>
+    </div>` : ''}
 
     <div style="background:linear-gradient(135deg,#1E3A8A,#2563EB);border-radius:16px;padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:14px">
       <div style="width:44px;height:44px;background:rgba(255,255,255,0.18);border:2.5px solid rgba(255,255,255,0.45);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:900;font-style:italic;flex-shrink:0">$</div>

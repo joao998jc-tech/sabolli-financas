@@ -129,6 +129,23 @@ window.signOutUser = async () => {
   location.reload();
 };
 
+// Sincroniza dados resumidos para o widget Android nativo
+async function syncWidgetData(uid) {
+  try {
+    const accs = JSON.parse(localStorage.getItem('sabolli_accounts') || '[]');
+    const money = accs.filter(a => a.type !== 'cartão' && a.type !== 'card');
+    const total = money.reduce((s, a) => s + (a.balance || 0), 0);
+    const top3 = money.slice(0, 3);
+    const payload = { total };
+    for (let i = 0; i < 3; i++) {
+      payload['a' + i + 'n'] = top3[i] ? (top3[i].name || '') : '';
+      payload['a' + i + 'b'] = top3[i] ? (top3[i].balance || 0) : 0;
+    }
+    payload.ts = new Date().toISOString();
+    await setDoc(doc(db, 'widget_data', uid), payload);
+  } catch (_) {}
+}
+
 // Debounce: agrupa escritas em lote a cada 2s para não sobrecarregar o Firestore
 const _syncQueue = {};
 let _syncTimer = null;
@@ -142,6 +159,7 @@ window.syncSaveData = (key, data) => {
     for (const [k, v] of entries) {
       try { await setDoc(doc(db, 'users', currentUid, 'data', k), { v }); } catch(e) {}
     }
+    if (Object.keys(_syncQueue).length === 0) syncWidgetData(currentUid);
   }, 2000);
 };
 
@@ -204,6 +222,7 @@ let appAlreadyStarted = false;
 onAuthStateChanged(auth, async user => {
   if (user) {
     currentUid = user.uid;
+    window._currentUid = user.uid;
     localStorage.removeItem('sabolli_skip_login');
     hideLoginOverlay();
     updateUserUI(user);

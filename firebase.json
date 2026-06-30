@@ -12,10 +12,14 @@
       "**/*.ps1",
       "**/*.py",
       "**/*.rb",
+      "**/*.java",
+      "**/*.gradle",
+      "**/*.xml",
       "README.md",
       "firestore.rules",
       "auto-push.ps1",
-      "iniciar-auto-push.bat"
+      "iniciar-auto-push.bat",
+      "sabolli-widget/**"
     ]
   },
   "firestore": {
