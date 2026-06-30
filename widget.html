@@ -12,286 +12,202 @@
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <title>Sabolli · Widget</title>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-
-:root {
-  --blue-dark: #1E3A8A;
-  --blue-vivid: #2563EB;
-  --blue-light: #3B82F6;
-  --green: #059669;
-  --green-v: #10B981;
-  --red: #DC2626;
-  --red-v: #EF4444;
-  --bg: #EEF4FF;
-  --card: #FFFFFF;
-  --border: #E2E8F0;
-  --text: #1E293B;
-  --text-sec: #64748B;
-}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--bg);
-  min-height: 100vh;
-  min-height: 100dvh;
+  background: #EEF4FF;
+  min-height: 100vh; min-height: 100dvh;
   overscroll-behavior: none;
 }
 
-.widget-wrap {
-  max-width: 430px;
-  margin: 0 auto;
+.wrap {
+  max-width: 430px; margin: 0 auto;
   min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
+  display: flex; flex-direction: column;
   padding-bottom: env(safe-area-inset-bottom, 12px);
 }
 
-/* ---- HEADER ---- */
-.w-header {
-  background: linear-gradient(135deg, var(--blue-dark), var(--blue-vivid));
-  padding: max(env(safe-area-inset-top, 16px), 16px) 16px 18px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
+/* HEADER */
+.header {
+  background: linear-gradient(135deg, #1E3A8A, #2563EB);
+  padding: max(env(safe-area-inset-top,16px),16px) 16px 20px;
+  display: flex; align-items: center; gap: 12px;
 }
-
-.w-logo {
+.logo {
   width: 42px; height: 42px;
   background: rgba(255,255,255,0.18);
   border: 2.5px solid rgba(255,255,255,0.45);
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  color: #fff;
-  font-size: 19px; font-weight: 900; font-style: italic;
+  color: #fff; font-size: 19px; font-weight: 900; font-style: italic;
   box-shadow: 0 2px 12px rgba(0,0,0,0.25);
-  flex-shrink: 0;
-  position: relative;
+  flex-shrink: 0; position: relative;
 }
-.w-logo::after {
-  content: '';
-  position: absolute; top: -2px; right: -2px;
-  width: 10px; height: 10px;
-  background: #10B981;
-  border-radius: 50%;
-  border: 2px solid #fff;
+.logo::after {
+  content:''; position:absolute; top:-2px; right:-2px;
+  width:10px; height:10px; background:#10B981;
+  border-radius:50%; border:2px solid #fff;
 }
-
-.w-header-text { flex: 1; }
-.w-header-title { font-size: 13px; font-weight: 900; color: #fff; letter-spacing: 0.6px; }
-.w-header-status { font-size: 10px; color: rgba(255,255,255,0.6); margin-top: 2px; }
-
-.w-refresh {
-  width: 38px; height: 38px;
-  background: rgba(255,255,255,0.15);
-  border: 1.5px solid rgba(255,255,255,0.3);
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  color: #fff; font-size: 18px;
-  cursor: pointer; flex-shrink: 0;
-  transition: background 0.2s, transform 0.15s;
-  user-select: none;
+.header-text { flex:1; }
+.header-title { font-size:13px; font-weight:900; color:#fff; letter-spacing:.6px; }
+.header-status { font-size:10px; color:rgba(255,255,255,.6); margin-top:2px; }
+.btn-refresh {
+  width:38px; height:38px;
+  background:rgba(255,255,255,.15);
+  border:1.5px solid rgba(255,255,255,.3);
+  border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  color:#fff; font-size:18px; cursor:pointer; flex-shrink:0;
+  transition: background .2s;
 }
-.w-refresh:active { background: rgba(255,255,255,0.3); }
-.w-refresh.spinning svg { animation: spin 0.9s linear infinite; }
+.btn-refresh:active { background:rgba(255,255,255,.35); }
+.btn-refresh svg { transition: transform .3s; }
+.btn-refresh.spin svg { animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(-360deg); } }
 
-/* ---- BALANCE CARD ---- */
-.w-balance-card {
-  background: linear-gradient(160deg, var(--blue-dark) 0%, #1e40af 100%);
-  padding: 0 20px 22px;
-  color: #fff;
+/* BALANCE */
+.balance-block {
+  background: linear-gradient(160deg,#1E3A8A,#1e40af);
+  padding: 0 20px 22px; color:#fff;
 }
-.w-balance-label {
-  font-size: 10px; font-weight: 700; letter-spacing: 1px;
-  text-transform: uppercase; opacity: 0.65; padding-top: 0; margin-bottom: 6px;
+.balance-label { font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; opacity:.65; margin-bottom:6px; }
+.balance-total { font-size:38px; font-weight:900; letter-spacing:-1.5px; line-height:1; }
+.balance-sub { font-size:11px; opacity:.55; margin-top:5px; }
+
+/* ACCOUNTS */
+.section { margin: 12px 12px 0; }
+.section-title { font-size:10px; font-weight:700; color:#64748B; text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px; padding-left:2px; }
+.accounts-card { background:#fff; border-radius:18px; box-shadow:0 2px 14px rgba(30,58,138,.07); overflow:hidden; }
+.acct-row { display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid #E8EEF8; }
+.acct-row:last-child { border-bottom:none; }
+.acct-icon { width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+.acct-name { font-size:13px; font-weight:700; color:#1E293B; }
+.acct-bank { font-size:11px; color:#64748B; margin-top:1px; }
+.acct-val { font-size:13px; font-weight:800; white-space:nowrap; margin-left:auto; }
+.empty-row { font-size:12px; color:#94A3B8; padding:16px 14px; text-align:center; }
+
+/* ACTIONS */
+.actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:12px 12px 0; }
+.action {
+  padding:15px 10px; border-radius:16px; border:none;
+  font-size:14px; font-weight:800; cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  box-shadow:0 3px 10px rgba(0,0,0,.12);
+  transition: transform .12s;
 }
-.w-balance-total {
-  font-size: 38px; font-weight: 900; letter-spacing: -1.5px; line-height: 1;
+.action:active { transform: scale(.96); }
+.action-icon { font-size:22px; }
+.action-label { font-size:12px; font-weight:700; }
+.action-e { background: linear-gradient(135deg,#059669,#10B981); color:#fff; }
+.action-s { background: linear-gradient(135deg,#DC2626,#EF4444); color:#fff; }
+
+.btn-app {
+  margin:10px 12px 4px;
+  padding:14px;
+  border-radius:16px;
+  border:1.5px solid #BFDBFE;
+  background:#fff; color:#2563EB;
+  font-size:14px; font-weight:700; cursor:pointer;
+  width:calc(100% - 24px);
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  transition: background .15s;
 }
-.w-balance-sub {
-  font-size: 11px; opacity: 0.55; margin-top: 5px;
+.btn-app:active { background:#EFF6FF; }
+
+.updated { text-align:center; font-size:10px; color:#94A3B8; padding:6px 12px 10px; }
+
+/* SHEET */
+.overlay {
+  position:fixed; inset:0;
+  background:rgba(15,23,42,.55);
+  display:none; align-items:flex-end; justify-content:center;
+  z-index:100; backdrop-filter:blur(2px);
+}
+.overlay.open { display:flex; }
+.sheet {
+  background:#fff; border-radius:26px 26px 0 0;
+  padding:0 16px max(env(safe-area-inset-bottom,24px),24px);
+  width:100%; max-width:430px;
+  animation:slideUp .28s cubic-bezier(.32,.72,0,1);
+  max-height:92dvh; overflow-y:auto;
+}
+@keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+.handle { width:40px; height:4px; background:#E2E8F0; border-radius:2px; margin:14px auto 16px; }
+.sheet-title { font-size:18px; font-weight:900; color:#1E293B; text-align:center; margin-bottom:18px; }
+
+.type-toggle {
+  display:grid; grid-template-columns:1fr 1fr;
+  background:#EEF4FF; border-radius:14px;
+  padding:4px; gap:4px; margin-bottom:16px;
+}
+.type-btn {
+  padding:11px 8px; border-radius:11px; border:none;
+  font-size:14px; font-weight:700; cursor:pointer;
+  color:#64748B; background:transparent; transition:all .18s;
+}
+.type-btn.ae { background:#059669; color:#fff; box-shadow:0 2px 8px rgba(5,150,105,.35); }
+.type-btn.as { background:#DC2626; color:#fff; box-shadow:0 2px 8px rgba(220,38,38,.35); }
+
+.amount-field {
+  width:100%; padding:18px 14px;
+  border:2px solid #E2E8F0; border-radius:16px;
+  font-size:28px; font-weight:900; color:#1E293B;
+  text-align:center; margin-bottom:12px;
+  outline:none; background:#FAFBFC;
+  transition:border-color .2s;
+}
+.amount-field:focus { border-color:#2563EB; }
+
+.field {
+  width:100%; padding:13px 14px;
+  border:1.5px solid #E2E8F0; border-radius:13px;
+  font-size:14px; color:#1E293B;
+  outline:none; background:#FAFBFC;
+  margin-bottom:10px; transition:border-color .2s;
+  appearance:none; -webkit-appearance:none;
+}
+.field:focus { border-color:#2563EB; }
+select.field {
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2364748B' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 12px center; padding-right:32px;
 }
 
-/* ---- ACCOUNTS ---- */
-.w-section {
-  margin: 12px 12px 0;
+.save-btn {
+  width:100%; padding:16px; border-radius:16px; border:none;
+  font-size:15px; font-weight:800; color:#fff; cursor:pointer;
+  margin-top:6px; transition:transform .12s;
+  box-shadow:0 4px 14px rgba(0,0,0,.2);
 }
-.w-section-title {
-  font-size: 10px; font-weight: 700; color: var(--text-sec);
-  text-transform: uppercase; letter-spacing: 0.5px;
-  margin-bottom: 6px; padding-left: 2px;
-}
-.w-accounts-card {
-  background: var(--card);
-  border-radius: 18px;
-  box-shadow: 0 2px 14px rgba(30,58,138,0.07);
-  overflow: hidden;
-}
-.w-account-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
-}
-.w-account-row:last-child { border-bottom: none; }
-.w-account-icon {
-  width: 34px; height: 34px; border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 15px; flex-shrink: 0;
-}
-.w-account-name { font-size: 13px; font-weight: 700; color: var(--text); }
-.w-account-bank { font-size: 11px; color: var(--text-sec); margin-top: 1px; }
-.w-account-value { font-size: 13px; font-weight: 800; white-space: nowrap; margin-left: auto; }
-.w-empty-row { font-size: 12px; color: var(--text-sec); padding: 16px 14px; text-align: center; }
+.save-btn:active { transform:scale(.98); }
+.save-btn.e { background:linear-gradient(135deg,#059669,#10B981); }
+.save-btn.s { background:linear-gradient(135deg,#DC2626,#EF4444); }
 
-/* ---- ACTIONS ---- */
-.w-actions {
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: 10px; margin: 12px 12px 0;
+/* TOAST */
+.toast {
+  position:fixed; bottom:24px; left:16px; right:16px;
+  background:#0F172A; color:#fff;
+  padding:14px 18px; border-radius:16px;
+  font-size:14px; font-weight:600; text-align:center;
+  z-index:200; opacity:0; pointer-events:none;
+  transform:translateY(8px);
+  transition:opacity .2s, transform .2s;
+  box-shadow:0 6px 24px rgba(0,0,0,.35);
 }
-.w-action {
-  padding: 15px 10px;
-  border-radius: 16px; border: none;
-  font-size: 14px; font-weight: 800;
-  cursor: pointer;
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.12);
-  transition: transform 0.12s, box-shadow 0.12s;
-}
-.w-action:active { transform: scale(0.96); box-shadow: 0 1px 6px rgba(0,0,0,0.1); }
-.w-action-icon { font-size: 22px; }
-.w-action-label { font-size: 12px; font-weight: 700; }
-.w-action-entrada { background: linear-gradient(135deg, var(--green), var(--green-v)); color: #fff; }
-.w-action-saida { background: linear-gradient(135deg, var(--red), var(--red-v)); color: #fff; }
-
-.w-open-app {
-  margin: 10px 12px 8px;
-  padding: 14px;
-  border-radius: 16px;
-  border: 1.5px solid #BFDBFE;
-  background: #fff;
-  color: var(--blue-vivid);
-  font-size: 14px; font-weight: 700;
-  cursor: pointer; width: calc(100% - 24px);
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  box-shadow: 0 2px 8px rgba(30,58,138,0.06);
-  transition: background 0.15s;
-}
-.w-open-app:active { background: #EFF6FF; }
-
-.w-updated {
-  text-align: center; font-size: 10px; color: var(--text-sec);
-  padding: 4px 12px 8px;
-}
-
-/* ---- QUICK ENTRY SHEET ---- */
-.w-sheet-overlay {
-  position: fixed; inset: 0;
-  background: rgba(15,23,42,0.55);
-  display: none; align-items: flex-end; justify-content: center;
-  z-index: 100;
-  backdrop-filter: blur(2px);
-}
-.w-sheet-overlay.open { display: flex; }
-
-.w-sheet {
-  background: var(--card);
-  border-radius: 26px 26px 0 0;
-  padding: 0 16px max(env(safe-area-inset-bottom, 24px), 24px);
-  width: 100%; max-width: 430px;
-  animation: slideUp 0.28s cubic-bezier(0.32, 0.72, 0, 1);
-  max-height: 92dvh;
-  overflow-y: auto;
-}
-@keyframes slideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
-
-.w-sheet-handle {
-  width: 40px; height: 4px; background: var(--border);
-  border-radius: 2px; margin: 14px auto 16px;
-}
-
-.w-sheet-title {
-  font-size: 18px; font-weight: 900; color: var(--text);
-  text-align: center; margin-bottom: 18px;
-}
-
-.w-type-toggle {
-  display: grid; grid-template-columns: 1fr 1fr;
-  background: var(--bg); border-radius: 14px;
-  padding: 4px; gap: 4px; margin-bottom: 16px;
-}
-.w-type-btn {
-  padding: 11px 8px; border-radius: 11px; border: none;
-  font-size: 14px; font-weight: 700; cursor: pointer;
-  color: var(--text-sec); background: transparent;
-  transition: all 0.18s;
-}
-.w-type-btn.active-entrada { background: var(--green); color: #fff; box-shadow: 0 2px 8px rgba(5,150,105,0.35); }
-.w-type-btn.active-saida { background: var(--red); color: #fff; box-shadow: 0 2px 8px rgba(220,38,38,0.35); }
-
-.w-amount-field {
-  width: 100%; padding: 18px 14px;
-  border: 2px solid var(--border); border-radius: 16px;
-  font-size: 28px; font-weight: 900; color: var(--text);
-  text-align: center; margin-bottom: 12px;
-  outline: none; background: #FAFBFC;
-  transition: border-color 0.2s;
-}
-.w-amount-field:focus { border-color: var(--blue-vivid); }
-
-.w-field {
-  width: 100%; padding: 13px 14px;
-  border: 1.5px solid var(--border); border-radius: 13px;
-  font-size: 14px; color: var(--text);
-  outline: none; background: #FAFBFC;
-  margin-bottom: 10px;
-  transition: border-color 0.2s;
-  appearance: none; -webkit-appearance: none;
-}
-.w-field:focus { border-color: var(--blue-vivid); }
-select.w-field { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2364748B' d='M1 1l5 5 5-5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
-
-.w-save-btn {
-  width: 100%; padding: 16px;
-  border-radius: 16px; border: none;
-  font-size: 15px; font-weight: 800; color: #fff;
-  cursor: pointer; margin-top: 6px;
-  transition: transform 0.12s, box-shadow 0.12s;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.2);
-}
-.w-save-btn:active { transform: scale(0.98); }
-.w-save-btn.entrada { background: linear-gradient(135deg, var(--green), var(--green-v)); }
-.w-save-btn.saida { background: linear-gradient(135deg, var(--red), var(--red-v)); }
-
-/* ---- TOAST ---- */
-.w-toast {
-  position: fixed; bottom: 24px; left: 16px; right: 16px;
-  background: #0F172A; color: #fff;
-  padding: 14px 18px; border-radius: 16px;
-  font-size: 14px; font-weight: 600;
-  text-align: center; z-index: 200;
-  opacity: 0; pointer-events: none;
-  transform: translateY(8px);
-  transition: opacity 0.2s, transform 0.2s;
-  box-shadow: 0 6px 24px rgba(0,0,0,0.35);
-}
-.w-toast.show { opacity: 1; transform: translateY(0); }
+.toast.show { opacity:1; transform:translateY(0); }
 </style>
 </head>
 <body>
-<div class="widget-wrap">
+<div class="wrap">
 
-  <!-- HEADER -->
-  <div class="w-header">
-    <div class="w-logo">$</div>
-    <div class="w-header-text">
-      <div class="w-header-title">SABOLLI FINANÇAS</div>
-      <div class="w-header-status" id="w-status">Carregando...</div>
+  <div class="header">
+    <div class="logo">$</div>
+    <div class="header-text">
+      <div class="header-title">SABOLLI FINANÇAS</div>
+      <div class="header-status" id="w-status">Carregando...</div>
     </div>
-    <button class="w-refresh" id="w-refresh-btn" onclick="refreshData()" title="Atualizar saldo">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <button class="btn-refresh" id="btn-refresh" onclick="refresh()" title="Atualizar">
+      <svg id="refresh-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
         <path d="M21 3v5h-5"/>
         <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
@@ -300,34 +216,29 @@ select.w-field { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://
     </button>
   </div>
 
-  <!-- BALANCE -->
-  <div class="w-balance-card">
-    <div class="w-balance-label">Dinheiro disponível</div>
-    <div class="w-balance-total" id="w-total">—</div>
-    <div class="w-balance-sub">em contas e dinheiro em espécie</div>
+  <div class="balance-block">
+    <div class="balance-label">Dinheiro disponível</div>
+    <div class="balance-total" id="w-total">—</div>
+    <div class="balance-sub">em contas e dinheiro em espécie</div>
   </div>
 
-  <!-- ACCOUNTS -->
-  <div class="w-section">
-    <div class="w-section-title">💵 Contas e Dinheiro</div>
-    <div class="w-accounts-card" id="w-accounts-card">
-      <div class="w-empty-row">Carregando...</div>
-    </div>
+  <div class="section">
+    <div class="section-title">💵 Contas e Dinheiro</div>
+    <div class="accounts-card" id="w-accounts"><div class="empty-row">Carregando...</div></div>
   </div>
 
-  <!-- ACTIONS -->
-  <div class="w-actions">
-    <button class="w-action w-action-entrada" onclick="openEntry('entrada')">
-      <span class="w-action-icon">⬆️</span>
-      <span class="w-action-label">Nova Entrada</span>
+  <div class="actions">
+    <button class="action action-e" onclick="openEntry('entrada')">
+      <span class="action-icon">⬆️</span>
+      <span class="action-label">Nova Entrada</span>
     </button>
-    <button class="w-action w-action-saida" onclick="openEntry('saida')">
-      <span class="w-action-icon">⬇️</span>
-      <span class="w-action-label">Nova Saída</span>
+    <button class="action action-s" onclick="openEntry('saida')">
+      <span class="action-icon">⬇️</span>
+      <span class="action-label">Nova Saída</span>
     </button>
   </div>
 
-  <button class="w-open-app" onclick="openApp()">
+  <button class="btn-app" onclick="openApp()">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
       <rect x="3" y="3" width="18" height="18" rx="3"/>
       <path d="M9 12h6m-3-3v6"/>
@@ -335,187 +246,158 @@ select.w-field { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://
     Abrir App Completo
   </button>
 
-  <div class="w-updated" id="w-updated"></div>
+  <div class="updated" id="w-updated"></div>
 </div>
 
-<!-- QUICK ENTRY SHEET -->
-<div class="w-sheet-overlay" id="w-sheet-overlay" onclick="handleOverlayClick(event)">
-  <div class="w-sheet" id="w-sheet">
-    <div class="w-sheet-handle"></div>
-    <div class="w-sheet-title" id="w-sheet-title">Novo Lançamento</div>
-
-    <div class="w-type-toggle">
-      <button class="w-type-btn" id="w-btn-e" onclick="setType('entrada')">↑ Entrada</button>
-      <button class="w-type-btn" id="w-btn-s" onclick="setType('saida')">↓ Saída</button>
+<!-- QUICK ENTRY -->
+<div class="overlay" id="overlay" onclick="closeIfBg(event)">
+  <div class="sheet">
+    <div class="handle"></div>
+    <div class="sheet-title" id="sheet-title">Novo Lançamento</div>
+    <div class="type-toggle">
+      <button class="type-btn" id="btn-e" onclick="setType('entrada')">↑ Entrada</button>
+      <button class="type-btn" id="btn-s" onclick="setType('saida')">↓ Saída</button>
     </div>
-
-    <input type="tel" id="w-amount" class="w-amount-field"
-      placeholder="0,00" inputmode="decimal"
-      oninput="fmtAmount(this)">
-
-    <input type="text" id="w-desc" class="w-field"
-      placeholder="Descrição (opcional)" maxlength="120">
-
-    <select id="w-acct" class="w-field">
-      <option value="">— Sem conta —</option>
-    </select>
-
-    <button class="w-save-btn entrada" id="w-save-btn" onclick="saveEntry()">
-      Salvar Lançamento
-    </button>
+    <input type="tel" id="w-amount" class="amount-field" placeholder="0,00" inputmode="decimal" oninput="fmtAmt(this)">
+    <input type="text" id="w-desc" class="field" placeholder="Descrição (opcional)" maxlength="120">
+    <select id="w-acct" class="field"></select>
+    <button class="save-btn e" id="save-btn" onclick="saveEntry()">Salvar Lançamento</button>
   </div>
 </div>
 
-<!-- TOAST -->
-<div class="w-toast" id="w-toast"></div>
+<div class="toast" id="toast"></div>
 
-<script type="module">
-// =====================
-// FIREBASE
-// =====================
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getFirestore, collection, getDocs, doc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+<script>
+// ── HELPERS ──────────────────────────────────────────────
+function ls(k) { try { const d=localStorage.getItem(k); return d?JSON.parse(d):null; } catch{return null;} }
+function ss(k,v) { localStorage.setItem(k,JSON.stringify(v)); }
+function fmt(v) { return 'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function todayStr() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function nextId(arr) { return arr&&arr.length?Math.max(...arr.map(d=>Number(d.id)||0))+1:1; }
 
-const FB_CONFIG = {
-  apiKey: "AIzaSyBTJmv-CaNSyYL1mA9HAO-vjL5fUL4vpPc",
-  authDomain: "sabolli-financas.firebaseapp.com",
-  projectId: "sabolli-financas",
-  storageBucket: "sabolli-financas.firebasestorage.app",
-  messagingSenderId: "1099064629968",
-  appId: "1:1099064629968:web:38fe1994cbe14ec7439cd5"
-};
-
-const fbApp = initializeApp(FB_CONFIG);
-const auth = getAuth(fbApp);
-const db = getFirestore(fbApp);
-let currentUid = null;
-
-// =====================
-// HELPERS
-// =====================
-function fmt(v) {
-  return 'R$ ' + Number(v||0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-function ls(k) { try { const d = localStorage.getItem(k); return d ? JSON.parse(d) : null; } catch { return null; } }
-function ss(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
-function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-function nextId(arr) {
-  if (!arr || !arr.length) return 1;
-  return Math.max(...arr.map(d => Number(d.id)||0)) + 1;
-}
-
-// =====================
-// TOAST
-// =====================
-let _toastTimer = null;
+let _tt;
 function toast(msg) {
-  const el = document.getElementById('w-toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(_tt); _tt=setTimeout(()=>el.classList.remove('show'),2600);
 }
 
-// =====================
-// RENDER BALANCE
-// =====================
-function renderBalance() {
-  const accounts = ls('sabolli_accounts') || [];
-  const moneyAccs = accounts.filter(a => a.type !== 'cartão');
-  const total = moneyAccs.reduce((s, a) => s + (a.balance || 0), 0);
+// ── RENDER ───────────────────────────────────────────────
+function render() {
+  const accs = ls('sabolli_accounts')||[];
+  const money = accs.filter(a=>a.type!=='cartão');
+  const total = money.reduce((s,a)=>s+(a.balance||0),0);
   document.getElementById('w-total').textContent = fmt(total);
 
-  const typeIcon = { conta: '🏦', poupança: '💰', dinheiro: '💵' };
-  const card = document.getElementById('w-accounts-card');
-
-  if (moneyAccs.length === 0) {
-    card.innerHTML = '<div class="w-empty-row">Nenhuma conta cadastrada</div>';
+  const icons = {conta:'🏦',poupança:'💰',dinheiro:'💵'};
+  const card = document.getElementById('w-accounts');
+  if (!money.length) {
+    card.innerHTML='<div class="empty-row">Nenhuma conta cadastrada<br><small>Abra o app e cadastre suas contas</small></div>';
   } else {
-    card.innerHTML = moneyAccs.map(a => {
-      const icon = typeIcon[a.type] || '🏦';
-      const valColor = (a.balance || 0) >= 0 ? '#2563EB' : '#DC2626';
-      return `<div class="w-account-row">
-        <div class="w-account-icon" style="background:${(a.color||'#1E3A8A')}20">${icon}</div>
-        <div>
-          <div class="w-account-name">${a.name}</div>
-          <div class="w-account-bank">${a.bank || a.type}</div>
-        </div>
-        <div class="w-account-value" style="color:${valColor}">${fmt(a.balance || 0)}</div>
+    card.innerHTML = money.map(a=>{
+      const col = (a.balance||0)>=0?'#2563EB':'#DC2626';
+      return `<div class="acct-row">
+        <div class="acct-icon" style="background:${(a.color||'#1E3A8A')}20">${icons[a.type]||'🏦'}</div>
+        <div><div class="acct-name">${a.name}</div><div class="acct-bank">${a.bank||a.type}</div></div>
+        <div class="acct-val" style="color:${col}">${fmt(a.balance||0)}</div>
       </div>`;
     }).join('');
   }
 
-  const lastSync = ls('sabolli_widget_sync_ts');
-  if (lastSync) {
-    const d = new Date(lastSync);
-    const hm = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    const dm = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-    document.getElementById('w-updated').textContent = `Atualizado ${dm} às ${hm}`;
-  }
+  const ts = ls('sabolli_widget_ts');
+  document.getElementById('w-updated').textContent = ts
+    ? 'Atualizado '+new Date(ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})
+    : '';
 }
 
-// =====================
-// POPULATE SELECT
-// =====================
-function populateAcctSelect() {
-  const accounts = ls('sabolli_accounts') || [];
-  const money = accounts.filter(a => a.type !== 'cartão');
-  const typeIcon = { conta: '🏦', poupança: '💰', dinheiro: '💵' };
+function populateSelect() {
+  const accs = ls('sabolli_accounts')||[];
+  const money = accs.filter(a=>a.type!=='cartão');
+  const icons = {conta:'🏦',poupança:'💰',dinheiro:'💵'};
   document.getElementById('w-acct').innerHTML =
-    money.map((a, i) => `<option value="${a.id}"${i === 0 ? ' selected' : ''}>${typeIcon[a.type]||'🏦'} ${a.name}${a.bank ? ' · ' + a.bank : ''}</option>`).join('') +
+    money.map((a,i)=>`<option value="${a.id}"${i===0?' selected':''}>${icons[a.type]||'🏦'} ${a.name}${a.bank?' · '+a.bank:''}</option>`).join('')+
     '<option value="">— Sem conta —</option>';
 }
 
-// =====================
-// FIREBASE SYNC
-// =====================
-async function syncFromCloud() {
-  if (!currentUid) return false;
+// ── FIREBASE SYNC (usa conta já logada no app) ────────────
+async function syncFromFirebase() {
   try {
-    const snap = await getDocs(collection(db, 'users', currentUid, 'data'));
-    snap.forEach(d => {
-      if (d.data().v !== undefined) localStorage.setItem(d.id, JSON.stringify(d.data().v));
+    // importa dinamicamente para não bloquear o render inicial
+    const { initializeApp, getApps } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
+    const { getAuth, onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+    const { getFirestore, collection, getDocs } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+
+    const cfg = {
+      apiKey:"AIzaSyBTJmv-CaNSyYL1mA9HAO-vjL5fUL4vpPc",
+      authDomain:"sabolli-financas.firebaseapp.com",
+      projectId:"sabolli-financas",
+      storageBucket:"sabolli-financas.firebasestorage.app",
+      messagingSenderId:"1099064629968",
+      appId:"1:1099064629968:web:38fe1994cbe14ec7439cd5"
+    };
+
+    const app = getApps().length ? getApps()[0] : initializeApp(cfg);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    return new Promise(resolve => {
+      const unsub = onAuthStateChanged(auth, async user => {
+        unsub();
+        if (!user) { resolve(false); return; }
+
+        try {
+          const snap = await getDocs(collection(db,'users',user.uid,'data'));
+          snap.forEach(d => { if(d.data().v!==undefined) localStorage.setItem(d.id,JSON.stringify(d.data().v)); });
+          ss('sabolli_widget_ts', new Date().toISOString());
+          resolve(true);
+        } catch { resolve(false); }
+      });
+      // timeout de 6s caso o Firebase demore
+      setTimeout(()=>{ unsub(); resolve(false); }, 6000);
     });
-    return true;
   } catch { return false; }
 }
 
-async function pushToCloud(key, data) {
-  if (!currentUid) return;
-  try { await setDoc(doc(db, 'users', currentUid, 'data', key), { v: data }); } catch {}
+async function pushToFirebase(key, data) {
+  try {
+    const { getApps } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
+    const { getAuth } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+    const { getFirestore, doc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    if (!getApps().length) return;
+    const auth = getAuth(getApps()[0]);
+    const user = auth.currentUser;
+    if (!user) return;
+    const db = getFirestore(getApps()[0]);
+    await setDoc(doc(db,'users',user.uid,'data',key),{v:data});
+  } catch {}
 }
 
-// =====================
-// REFRESH
-// =====================
-window.refreshData = async function() {
-  const btn = document.getElementById('w-refresh-btn');
-  btn.classList.add('spinning');
+// ── REFRESH ──────────────────────────────────────────────
+window.refresh = async function() {
+  const btn = document.getElementById('btn-refresh');
+  btn.classList.add('spin');
   document.getElementById('w-status').textContent = 'Sincronizando...';
 
-  const ok = await syncFromCloud();
+  const ok = await syncFromFirebase();
 
-  btn.classList.remove('spinning');
+  btn.classList.remove('spin');
   if (ok) {
-    ss('sabolli_widget_sync_ts', new Date().toISOString());
-    document.getElementById('w-status').textContent = 'Atualizado agora ✓';
-    setTimeout(() => {
-      document.getElementById('w-status').textContent = currentUid ? 'Sincronizado' : 'Dados locais';
-    }, 2500);
+    document.getElementById('w-status').textContent = 'Sincronizado ✓';
+    setTimeout(()=>{ document.getElementById('w-status').textContent='Conta ativa'; },2500);
   } else {
-    document.getElementById('w-status').textContent = currentUid ? 'Sem conexão' : 'Sem login · dados locais';
+    // fallback: BroadcastChannel para pedir ao app principal sincronizar
+    try {
+      const ch = new BroadcastChannel('sabolli-sync');
+      ch.postMessage({type:'REQUEST_SYNC'});
+      ch.close();
+    } catch {}
+    document.getElementById('w-status').textContent = 'Dados locais';
   }
-  renderBalance();
-  populateAcctSelect();
+  render();
+  populateSelect();
 };
 
-// =====================
-// QUICK ENTRY
-// =====================
+// ── QUICK ENTRY ──────────────────────────────────────────
 let entryType = 'entrada';
 
 window.openEntry = function(type) {
@@ -523,134 +405,137 @@ window.openEntry = function(type) {
   setType(type);
   document.getElementById('w-amount').value = '';
   document.getElementById('w-desc').value = '';
-  populateAcctSelect();
-  document.getElementById('w-sheet-overlay').classList.add('open');
-  setTimeout(() => document.getElementById('w-amount').focus(), 320);
+  populateSelect();
+  document.getElementById('overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('w-amount').focus(),320);
 };
 
-window.handleOverlayClick = function(e) {
-  if (e.target === document.getElementById('w-sheet-overlay')) closeEntry();
-};
-
-window.closeEntry = function() {
-  document.getElementById('w-sheet-overlay').classList.remove('open');
+window.closeIfBg = function(e) {
+  if (e.target===document.getElementById('overlay'))
+    document.getElementById('overlay').classList.remove('open');
 };
 
 window.setType = function(type) {
   entryType = type;
-  document.getElementById('w-btn-e').className = 'w-type-btn' + (type === 'entrada' ? ' active-entrada' : '');
-  document.getElementById('w-btn-s').className = 'w-type-btn' + (type === 'saida' ? ' active-saida' : '');
-  const saveBtn = document.getElementById('w-save-btn');
-  saveBtn.className = 'w-save-btn ' + (type === 'entrada' ? 'entrada' : 'saida');
-  document.getElementById('w-sheet-title').textContent = type === 'entrada' ? '↑ Nova Entrada' : '↓ Nova Saída';
+  document.getElementById('btn-e').className='type-btn'+(type==='entrada'?' ae':'');
+  document.getElementById('btn-s').className='type-btn'+(type==='saida'?' as':'');
+  const s = document.getElementById('save-btn');
+  s.className='save-btn '+(type==='entrada'?'e':'s');
+  document.getElementById('sheet-title').textContent = type==='entrada'?'↑ Nova Entrada':'↓ Nova Saída';
 };
 
-window.fmtAmount = function(el) {
-  const raw = el.value.replace(/\D/g, '');
-  if (!raw) { el.value = ''; return; }
-  const num = parseInt(raw, 10) / 100;
-  el.value = num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+window.fmtAmt = function(el) {
+  const r = el.value.replace(/\D/g,'');
+  if (!r){el.value='';return;}
+  el.value = (parseInt(r,10)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 };
 
 window.saveEntry = async function() {
-  const raw = document.getElementById('w-amount').value.replace(/\./g, '').replace(',', '.');
+  const raw = document.getElementById('w-amount').value.replace(/\./g,'').replace(',','.');
   const value = parseFloat(raw);
-  if (!value || value <= 0) { toast('⚠️ Informe o valor'); return; }
+  if (!value||value<=0){toast('⚠️ Informe o valor');return;}
 
-  const desc = (document.getElementById('w-desc').value || '').trim() ||
-    (entryType === 'entrada' ? 'Entrada' : 'Saída');
-  const acctId = document.getElementById('w-acct').value ? Number(document.getElementById('w-acct').value) : null;
+  const desc = (document.getElementById('w-desc').value||'').trim()||(entryType==='entrada'?'Entrada':'Saída');
+  const acctId = document.getElementById('w-acct').value?Number(document.getElementById('w-acct').value):null;
 
-  // Save transaction
-  const txs = ls('sabolli_financial_transactions') || [];
-  const newTx = {
+  // salva transação
+  const txs = ls('sabolli_financial_transactions')||[];
+  txs.push({
     id: nextId(txs),
-    type: entryType === 'entrada' ? 'entrada' : 'saída',
-    description: desc,
-    value,
+    type: entryType==='entrada'?'entrada':'saída',
+    description: desc, value,
     date: todayStr(),
     category: 'Outros',
     status: 'realizado',
     accountId: acctId,
     origin: 'widget',
     createdAt: new Date().toISOString()
-  };
-  txs.push(newTx);
+  });
   ss('sabolli_financial_transactions', txs);
 
-  // Update balance
+  // atualiza saldo
   if (acctId) {
-    const accs = ls('sabolli_accounts') || [];
-    const idx = accs.findIndex(a => a.id === acctId);
-    if (idx !== -1) {
-      accs[idx].balance = (accs[idx].balance || 0) + (entryType === 'entrada' ? value : -value);
+    const accs = ls('sabolli_accounts')||[];
+    const idx = accs.findIndex(a=>a.id===acctId);
+    if (idx!==-1) {
+      accs[idx].balance = (accs[idx].balance||0)+(entryType==='entrada'?value:-value);
       ss('sabolli_accounts', accs);
-      pushToCloud('sabolli_accounts', accs);
+      pushToFirebase('sabolli_accounts', accs);
     }
   }
-  pushToCloud('sabolli_financial_transactions', txs);
+  pushToFirebase('sabolli_financial_transactions', txs);
 
-  ss('sabolli_widget_sync_ts', new Date().toISOString());
-  closeEntry();
-  toast(entryType === 'entrada' ? '✅ Entrada salva!' : '✅ Saída registrada!');
-  renderBalance();
+  // notifica app principal se estiver aberto
+  try {
+    const ch = new BroadcastChannel('sabolli-sync');
+    ch.postMessage({type:'DATA_UPDATED'});
+    ch.close();
+  } catch {}
+
+  ss('sabolli_widget_ts', new Date().toISOString());
+  document.getElementById('overlay').classList.remove('open');
+  toast(entryType==='entrada'?'✅ Entrada salva!':'✅ Saída registrada!');
+  render();
 };
 
-window.openApp = function(action) {
-  const base = location.href.replace('widget.html', 'index.html').replace(/\?.*$/, '');
-  const url = action ? base + '?from=widget&action=' + action : base;
-  window.open(url, '_blank');
+window.openApp = function() {
+  const base = location.href.replace('widget.html','index.html').replace(/\?.*$/,'');
+  window.open(base,'_blank');
 };
 
-// =====================
-// INIT
-// =====================
-onAuthStateChanged(auth, async user => {
-  currentUid = user ? user.uid : null;
+// ── INIT ─────────────────────────────────────────────────
+(async function init() {
+  // 1. Renderiza dados locais imediatamente (sem esperar rede)
+  const hasData = !!(ls('sabolli_accounts'));
+  render();
+  populateSelect();
 
-  // Render local data imediatamente
-  renderBalance();
-  populateAcctSelect();
+  if (!hasData) {
+    document.getElementById('w-status').textContent = 'Abra o app principal primeiro';
+    document.getElementById('w-updated').textContent = 'Os dados aparecem após o primeiro login no app';
+    return;
+  }
 
-  if (user) {
-    document.getElementById('w-status').textContent = 'Sincronizando...';
-    const ok = await syncFromCloud();
-    if (ok) {
-      ss('sabolli_widget_sync_ts', new Date().toISOString());
-      renderBalance();
-      populateAcctSelect();
-      document.getElementById('w-status').textContent = 'Sincronizado';
-    } else {
-      document.getElementById('w-status').textContent = 'Dados locais (offline)';
-    }
+  document.getElementById('w-status').textContent = 'Sincronizando...';
+
+  // 2. Tenta sincronizar via Firebase (usa sessão do app)
+  const ok = await syncFromFirebase();
+  if (ok) {
+    render();
+    populateSelect();
+    document.getElementById('w-status').textContent = 'Conta ativa';
   } else {
-    const skip = localStorage.getItem('sabolli_skip_login');
-    document.getElementById('w-status').textContent = skip === '1' ? 'Dados locais' : 'Não logado';
+    document.getElementById('w-status').textContent = 'Dados locais';
   }
 
-  // Periodic Background Sync (Android Chrome)
-  if ('serviceWorker' in navigator && 'periodicSync' in (await navigator.serviceWorker.ready)) {
-    try {
-      const reg = await navigator.serviceWorker.ready;
-      await reg.periodicSync.register('sabolli-balance-sync', { minInterval: 60 * 60 * 1000 });
-    } catch {}
-  }
-
-  // Deep link via URL param
+  // 3. URL param para lançamento rápido
   const param = new URLSearchParams(location.search).get('action');
-  if (param === 'entrada' || param === 'entry') setTimeout(() => openEntry('entrada'), 400);
-  else if (param === 'saida' || param === 'saída') setTimeout(() => openEntry('saida'), 400);
-});
+  if (param==='entrada') setTimeout(()=>openEntry('entrada'),400);
+  else if (param==='saida'||param==='saída') setTimeout(()=>openEntry('saida'),400);
 
-// Escuta mensagens do Service Worker (background sync)
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.addEventListener('message', e => {
-    if (e.data?.type === 'BALANCE_UPDATED') {
-      renderBalance();
-      document.getElementById('w-status').textContent = 'Atualizado em segundo plano ✓';
-    }
-  });
-}
+  // 4. Escuta atualizações do app principal
+  try {
+    const ch = new BroadcastChannel('sabolli-sync');
+    ch.onmessage = e => {
+      if (e.data?.type==='SYNC_COMPLETE'||e.data?.type==='DATA_UPDATED') {
+        render();
+        document.getElementById('w-status').textContent = 'Atualizado ✓';
+      }
+    };
+  } catch {}
+
+  // 5. Periodic Background Sync
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready.then(reg => {
+      if ('periodicSync' in reg) {
+        reg.periodicSync.register('sabolli-balance-sync',{minInterval:3600000}).catch(()=>{});
+      }
+    }).catch(()=>{});
+    navigator.serviceWorker.addEventListener('message', e => {
+      if (e.data?.type==='BALANCE_UPDATED') render();
+    });
+  }
+})();
 </script>
 </body>
 </html>

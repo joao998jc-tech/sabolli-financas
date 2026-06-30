@@ -3523,4 +3523,23 @@ document.addEventListener('DOMContentLoaded', () => {
       panel.classList.remove('open');
     }
   });
+
+  // Canal de comunicação com o widget
+  try {
+    const widgetChannel = new BroadcastChannel('sabolli-sync');
+    widgetChannel.onmessage = async (e) => {
+      if (e.data?.type === 'REQUEST_SYNC') {
+        if (window.syncSaveData) {
+          // relê dados do Firestore e notifica widget
+          if (window._fbSyncAll) await window._fbSyncAll();
+        }
+        widgetChannel.postMessage({ type: 'SYNC_COMPLETE' });
+      }
+      if (e.data?.type === 'DATA_UPDATED') {
+        // widget salvou dados novos, recarrega a tela atual
+        const content = document.getElementById('content');
+        if (content && window._currentSection) renderPage(content, window._currentSection);
+      }
+    };
+  } catch {}
 });
