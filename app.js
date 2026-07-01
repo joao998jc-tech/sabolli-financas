@@ -1,4 +1,4 @@
-﻿// SABOLLI FINANÇAS v2.8
+﻿// SABOLLI FINANÇAS v2.9
 
 // ===== TEMAS =====
 const APP_THEMES = {
@@ -88,6 +88,7 @@ let currentBillMonth = null;
 let currentPersonalMonth = null;
 let currentExtractTab = 'negocio';
 let currentSalesPeriod = 'all';
+let editingOrderId = null;
 
 // ===== HELPERS =====
 function todayStr() {
@@ -148,6 +149,269 @@ function saveData(key, data) {
 }
 function loadData(key) { try { const d=localStorage.getItem(key); return d?JSON.parse(d):null; } catch(e){return null;} }
 
+// ===== RECONHECIMENTO DE VOZ =====
+const NUM_WORDS = { zero:0,um:1,uma:1,dois:2,duas:2,tres:3,quatro:4,cinco:5,seis:6,sete:7,oito:8,nove:9,dez:10,
+  onze:11,doze:12,treze:13,quatorze:14,catorze:14,quinze:15,dezesseis:16,dezessete:17,dezoito:18,dezenove:19,vinte:20 };
+
+function normalizeText(s) {
+  return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
+}
+
+function capitalizeWords(s) { return (s||'').split(' ').filter(Boolean).map(w=>w[0].toUpperCase()+w.slice(1)).join(' '); }
+
+function parseMoneyValue(text) {
+  const t = normalizeText(text);
+  let m = t.match(/(\d+)\s*reais?\s*(?:e\s*)?(\d{1,2})?/);
+  if (m) {
+    const cents = m[2] ? Number(m[2].padEnd(2,'0').slice(0,2)) : 0;
+    return Number(m[1]) + cents/100;
+  }
+  m = t.match(/(\d+[.,]\d{1,2})/);
+  if (m) return Number(m[1].replace(',','.'));
+  m = t.match(/(\d+)/);
+  if (m) return Number(m[1]);
+  return 0;
+}
+
+function findNumberBefore(words, idx, maxLookback) {
+  for (let i=idx-1; i>=Math.max(0,idx-(maxLookback||3)); i--) {
+    const w = (words[i]||'').replace(/[^a-z0-9]/gi,'');
+    if (/^\d+$/.test(w)) return Number(w);
+    if (NUM_WORDS[w]!==undefined) return NUM_WORDS[w];
+  }
+  return 1;
+}
+
+function startVoiceCapture(onResult) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { toast('Reconhecimento de voz não suportado neste navegador. Use o Chrome no Android.', 'error'); return; }
+  const rec = new SR();
+  rec.lang = 'pt-BR';
+  rec.continuous = false;
+  rec.interimResults = false;
+  rec.maxAlternatives = 1;
+  toast('🎙️ Ouvindo... fale o comando', 'warning');
+  rec.onresult = (e) => {
+    const transcript = e.results[0][0].transcript;
+    onResult(transcript);
+  };
+  rec.onerror = (e) => {
+    if (e.error === 'no-speech') toast('Não ouvi nada. Tente novamente.', 'error');
+    else if (e.error === 'not-allowed') toast('Permissão de microfone negada.', 'error');
+    else toast('Erro no reconhecimento de voz: ' + e.error, 'error');
+  };
+  try { rec.start(); } catch (err) { toast('Não foi possível iniciar o microfone.', 'error'); }
+}
+
+// ---- Comando de voz: Novo Pedido ----
+function voiceNewOrder() {
+  startVoiceCapture(processVoiceOrder);
+}
+
+function processVoiceOrder(rawTranscript) {
+  const t = normalizeText(rawTranscript);
+  const words = t.split(/\s+/);
+  const products = loadData('sabolli_products')||[];
+
+  let canal = 'Loja Física';
+  if (/\bdelivery\b|\bentrega\b/.test(t)) canal = 'Delivery';
+  else if (/\brevenda\b/.test(t)) canal = 'Revenda';
+  else if (/\bwhatsapp\b|\bzap\b/.test(t)) canal = 'WhatsApp';
+  else if (/\bretirada\b|\bloja\b|\bbalcao\b/.test(t)) canal = 'Loja Física';
+
+  let payment = 'PIX';
+  if (/\bdinheiro\b/.test(t)) payment = 'Dinheiro';
+  else if (/\bcartao\b/.test(t)) payment = 'Cartão';
+  else if (/\bfiado\b/.test(t)) payment = 'Fiado';
+  else if (/\bpix\b/.test(t)) payment = 'PIX';
+
+  let customer = 'Cliente Avulso';
+  const mCust = t.match(/cliente\s+([a-z\s]+?)(?=\s+(pagou|pagamento|com|delivery|entrega|retirada|loja|revenda|whatsapp|pix|dinheiro|cartao|fiado|produtos?|itens?)\b|$)/);
+  if (mCust && mCust[1].trim()) customer = capitalizeWords(mCust[1].trim());
+
+  const cart = [];
+  products.forEach(p => {
+    const pname = normalizeText(p.name);
+    const nameWords = pname.split(/\s+/).filter(w=>w.length>3);
+    for (const nw of nameWords) {
+      const idx = words.indexOf(nw);
+      if (idx>=0) {
+        const qty = findNumberBefore(words, idx, 3);
+        cart.push({ id:p.id, name:p.name, price:p.price, qty: qty||1 });
+        break;
+      }
+    }
+  });
+
+  if (cart.length===0) {
+    toast('Não identifiquei nenhum produto no pedido. Fale o nome do produto claramente.', 'error');
+    return;
+  }
+
+  const settings = loadData('sabolli_settings')||{delivery_fee:6};
+  const delivery = canal==='Delivery' ? deliveryChargeAmount(settings) : 0;
+  createOrderFromVoice({ customer, canal, payment, delivery, cart });
+}
+
+function createOrderFromVoice({ customer, canal, payment, delivery, cart, date }) {
+  const orders = loadData('sabolli_orders')||[];
+  const lastId = orders.length>0 ? Math.max(...orders.map(o=>Number(o.id)||0)) : 1248;
+  const subtotal = cart.reduce((s,i)=>s+(i.price*i.qty),0);
+  const total = subtotal + delivery;
+  const d = date || todayStr();
+  const newOrder = { id:lastId+1, date:d, customer, items:cart, canal, payment, status: payment==='Fiado'?'Pendente':'Pago', total, delivery, obs:'Lançado por comando de voz', viaVoice:true, createdAt:Date.now() };
+  orders.unshift(newOrder);
+  saveData('sabolli_orders', orders);
+  if (newOrder.status==='Pago') {
+    const txs = loadData('sabolli_financial_transactions')||[];
+    txs.unshift({ id:nextId(txs), date:d, desc:`Venda #${newOrder.id} — ${customer}`, type:'entrada', value:total, category:'Vendas' });
+    saveData('sabolli_financial_transactions', txs);
+  }
+  const itemsDesc = cart.map(i=>`${i.qty}x ${i.name}`).join(', ');
+  toast(`🎙️ Pedido #${newOrder.id}: ${customer} · ${itemsDesc} · ${payment} · ${canal}${delivery?' · frete '+fmt(delivery):''}`);
+  if (['new-order','orders-list','edit-order'].includes(currentSection)) navigateTo('orders-list');
+}
+
+// ---- Comando de voz: Lançamento Entrada/Saída ----
+function voiceNewTransaction() {
+  startVoiceCapture(processVoiceTransaction);
+}
+
+function processVoiceTransaction(rawTranscript) {
+  const t = normalizeText(rawTranscript);
+
+  let tipo = 'entrada';
+  if (/\b(paguei|gastei|comprei|saida)\b/.test(t)) tipo = 'saída';
+  else if (/\b(recebi|entrada|venda|ganhei)\b/.test(t)) tipo = 'entrada';
+
+  const value = parseMoneyValue(t);
+  if (!value || value<=0) {
+    toast('Não identifiquei o valor. Diga "valor" seguido do número.', 'error');
+    return;
+  }
+
+  const accounts = loadData('sabolli_accounts')||[];
+  const moneyAccounts = accounts.filter(a=>a.type!=='cartão');
+  let accountId = null, accLabel = '';
+  if (/\bdinheiro\b/.test(t)) {
+    accLabel = 'Dinheiro';
+  } else {
+    for (const a of moneyAccounts) {
+      const an = normalizeText(a.name);
+      const ab = normalizeText(a.bank||'');
+      if ((an && t.includes(an)) || (ab && t.includes(ab))) { accountId = a.id; accLabel = a.name; break; }
+    }
+    if (!accountId && /conta/.test(t) && moneyAccounts.length) { accountId = moneyAccounts[0].id; accLabel = moneyAccounts[0].name; }
+  }
+
+  let desc = rawTranscript
+    .replace(/\b(recebi|paguei|gastei|comprei|ganhei)\b/gi,'')
+    .replace(/\bpagamento\s+de\b/gi,'')
+    .replace(/\bvalor\s*[\d.,]+\s*(reais)?\b/gi,'')
+    .replace(/\bna conta corrente\b.*$/gi,'')
+    .replace(/\bna conta\b.*$/gi,'')
+    .replace(/\bem dinheiro\b.*$/gi,'')
+    .replace(/\bno cart[aã]o\b.*$/gi,'')
+    .replace(/\s{2,}/g,' ')
+    .trim();
+  if (!desc) desc = tipo==='entrada' ? 'Recebimento' : 'Pagamento';
+  desc = capitalizeWords(desc);
+
+  createTransactionFromVoice({ tipo, desc, value, accountId, accLabel });
+}
+
+function createTransactionFromVoice({ tipo, desc, value, accountId, accLabel, date }) {
+  const d = date || todayStr();
+  const category = tipo==='entrada' ? 'Vendas' : 'Outros';
+  if (accountId) {
+    const accs = loadData('sabolli_accounts')||[];
+    const acc = accs.find(a=>a.id===accountId);
+    if (acc) { acc.balance = (acc.balance||0) + (tipo==='entrada'?value:-value); saveData('sabolli_accounts', accs); }
+  }
+  const txs = loadData('sabolli_financial_transactions')||[];
+  txs.unshift({ id:nextId(txs), date:d, desc, type:tipo, value, category, accountId: accountId||null, extractType:'negocio', status:'realizado' });
+  saveData('sabolli_financial_transactions', txs);
+  toast(`🎙️ Lançamento: ${tipo==='entrada'?'+':'-'}${fmt(value)} · ${desc}${accLabel?' · '+accLabel:''}`);
+  if (['transactions','extract'].includes(currentSection)) navigateTo(currentSection);
+}
+
+// ---- Comando de voz: Ajustes (editar/corrigir por voz) ----
+function voiceAdjust() {
+  startVoiceCapture(processVoiceAdjust);
+}
+
+function processVoiceAdjust(rawTranscript) {
+  const t = normalizeText(rawTranscript);
+
+  let m = t.match(/pedido\s+(?:d[eo]\s+)?(?:cliente\s+)?([a-z\s]+?)\s+para\s+pago/);
+  if (m) {
+    const name = m[1].trim();
+    const orders = loadData('sabolli_orders')||[];
+    const match = orders.filter(o=>normalizeText(o.customer).includes(name)).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id)[0];
+    if (!match) { toast('Não encontrei nenhum pedido de "'+name+'"','error'); return; }
+    customConfirm(`Marcar pedido #${match.id} de ${match.customer} como Pago?`, ()=>markOrderPaid(match.id));
+    return;
+  }
+
+  m = t.match(/valor\s+do\s+(pedido|lancamento)\s+(?:d[eo]\s+)?([a-z\s]+?)\s+para\s+([\d.,]+)/);
+  if (m) {
+    const kind = m[1], name = m[2].trim(), newValue = Number(m[3].replace(',','.'));
+    if (kind==='pedido') {
+      const orders = loadData('sabolli_orders')||[];
+      const match = orders.filter(o=>normalizeText(o.customer).includes(name)).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id)[0];
+      if (!match) { toast('Não encontrei nenhum pedido de "'+name+'"','error'); return; }
+      customConfirm(`Mudar valor do pedido #${match.id} de ${match.customer} para ${fmt(newValue)}?`, ()=>{
+        const orders2 = loadData('sabolli_orders')||[];
+        const o = orders2.find(x=>x.id===match.id);
+        o.total = newValue;
+        saveData('sabolli_orders', orders2);
+        toast('Valor do pedido #'+o.id+' atualizado!');
+        navigateTo('orders-list');
+      });
+    } else {
+      const txs = loadData('sabolli_financial_transactions')||[];
+      const match = txs.filter(x=>normalizeText(x.desc||'').includes(name)).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id)[0];
+      if (!match) { toast('Não encontrei nenhum lançamento de "'+name+'"','error'); return; }
+      customConfirm(`Mudar valor do lançamento "${match.desc}" para ${fmt(newValue)}?`, ()=>{
+        const txs2 = loadData('sabolli_financial_transactions')||[];
+        const tx = txs2.find(x=>x.id===match.id);
+        if (tx.accountId) {
+          const accs = loadData('sabolli_accounts')||[];
+          const acc = accs.find(a=>a.id===tx.accountId);
+          if (acc) { acc.balance = (acc.balance||0) + (tx.type==='entrada' ? (newValue-tx.value) : (tx.value-newValue)); saveData('sabolli_accounts', accs); }
+        }
+        tx.value = newValue;
+        saveData('sabolli_financial_transactions', txs2);
+        toast('Valor do lançamento atualizado!');
+        navigateTo('transactions');
+      });
+    }
+    return;
+  }
+
+  m = t.match(/(?:exclui|excluir|apaga|apagar|cancela|cancelar)\s+o\s+pedido\s+(?:d[eo]\s+)?([a-z\s]+)/);
+  if (m) {
+    const name = m[1].trim();
+    const orders = loadData('sabolli_orders')||[];
+    const match = orders.filter(o=>normalizeText(o.customer).includes(name)).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id)[0];
+    if (!match) { toast('Não encontrei nenhum pedido de "'+name+'"','error'); return; }
+    deleteOrder(match.id);
+    return;
+  }
+
+  m = t.match(/(?:exclui|excluir|apaga|apagar|cancela|cancelar)\s+o\s+lancamento\s+(?:d[eo]\s+)?([a-z\s]+)/);
+  if (m) {
+    const name = m[1].trim();
+    const txs = loadData('sabolli_financial_transactions')||[];
+    const match = txs.filter(x=>normalizeText(x.desc||'').includes(name)).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id)[0];
+    if (!match) { toast('Não encontrei nenhum lançamento de "'+name+'"','error'); return; }
+    deleteTx(match.id);
+    return;
+  }
+
+  toast('Não entendi o ajuste. Ex: "muda o pedido de João para pago", "corrige o valor do lançamento de aluguel para 50"', 'error');
+}
+
 // ===== MENUS =====
 const personalMenu = [
   { group:'INÍCIO', items:[
@@ -173,6 +437,7 @@ const businessMenu = [
   { group:'VENDAS', items:[
     { id:'new-order', label:'Novo Pedido', icon:'🛒' },
     { id:'orders-list', label:'Lista de Pedidos', icon:'📋' },
+    { id:'voice-orders', label:'Pedidos por Voz', icon:'🎙️' },
     { id:'daily-sales', label:'Vendas Diárias', icon:'📅' }
   ]},
   { group:'CLIENTES', items:[
@@ -418,7 +683,7 @@ function renderSidebar() {
 
 // ===== HEADER =====
 const pageTitles = {
-  dashboard:'Dashboard','new-order':'Novo Pedido','orders-list':'Lista de Pedidos','daily-sales':'Vendas Diárias',
+  dashboard:'Dashboard','new-order':'Novo Pedido','edit-order':'Editar Pedido','orders-list':'Lista de Pedidos','voice-orders':'Pedidos por Voz','daily-sales':'Vendas Diárias',
   customers:'Clientes',resellers:'Pontos de Revenda',products:'Produtos','stock-mgmt':'Estoque',
   'stock-moves':'Movimentação de Estoque','new-purchase':'Nova Compra',purchases:'Histórico de Compras',
   inputs:'Insumos',transactions:'Lançamentos Financeiros',extract:'Extrato',accounts:'Contas e Cartões',
@@ -449,7 +714,9 @@ function navigateTo(section) {
 function renderPage(c, s) {
   if (s==='dashboard') return renderDashboard(c);
   if (s==='new-order') return renderNewOrder(c);
+  if (s==='edit-order') return renderNewOrder(c);
   if (s==='orders-list') return renderOrdersList(c);
+  if (s==='voice-orders') return renderVoiceOrders(c);
   if (s==='daily-sales') return renderDailySales(c);
   if (s==='customers') return renderCustomers(c);
   if (s==='products') return renderProducts(c);
@@ -739,12 +1006,28 @@ function renderDonutChart(segs) {
 }
 
 // ===== NOVO PEDIDO =====
+function deliveryChargeAmount(settings) {
+  return (Number((settings||{}).delivery_fee)||6) + 3;
+}
+
 function renderNewOrder(c) {
-  orderCart = [];
   const products = loadData('sabolli_products')||[];
   const settings = loadData('sabolli_settings')||{delivery_fee:6};
+  const feeCharge = deliveryChargeAmount(settings);
+  let editOrder = null;
+  if (currentSection==='edit-order' && editingOrderId) {
+    const orders = loadData('sabolli_orders')||[];
+    editOrder = orders.find(o=>Number(o.id)===Number(editingOrderId));
+  }
+  if (editOrder) {
+    orderCart = editOrder.items.map(i=>({...i}));
+  } else {
+    orderCart = [];
+    editingOrderId = null;
+  }
   c.innerHTML = `
   <div class="form-page">
+    <button onclick="voiceNewOrder()" style="width:100%;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,#7C3AED,#5B21B6);color:#fff;font-size:14px;font-weight:800;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px">🎙️ Lançar Pedido por Voz</button>
     <div class="section-card">
       <div class="section-title">🍽️ Selecionar Produtos</div>
       <div class="product-grid">
@@ -756,7 +1039,7 @@ function renderNewOrder(c) {
     </div>
     <div class="section-card" id="cart-box">
       <div class="section-title">🛒 Carrinho</div>
-      <div id="cart-items"><div class="empty-state"><div class="empty-icon">🛒</div><p>Nenhum item adicionado</p></div></div>
+      <div id="cart-items"></div>
       <div class="cart-total-row" id="cart-total-row" style="display:none">
         <span class="cart-total-label">Total do Pedido</span>
         <span class="cart-total-value" id="cart-total-val">R$ 0,00</span>
@@ -764,32 +1047,34 @@ function renderNewOrder(c) {
     </div>
     <div class="section-card">
       <div class="section-title">📋 Detalhes do Pedido</div>
-      <div class="form-group"><label class="form-label">Cliente</label><input id="ord-customer" class="form-input" type="text" placeholder="Nome do cliente..." autocomplete="off"></div>
+      <div class="form-group"><label class="form-label">Cliente</label><input id="ord-customer" class="form-input" type="text" placeholder="Nome do cliente..." autocomplete="off" value="${editOrder?(editOrder.customer||'').replace(/"/g,'&quot;'):''}"></div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Canal de Venda</label>
           <select id="ord-canal" class="form-select">
-            <option>Loja Física</option><option>Delivery</option><option>Revenda</option><option>WhatsApp</option><option>Outros</option>
+            ${['Loja Física','Delivery','Revenda','WhatsApp','Outros'].map(op=>`<option${editOrder&&editOrder.canal===op?' selected':''}>${op}</option>`).join('')}
           </select>
         </div>
         <div class="form-group"><label class="form-label">Pagamento</label>
           <select id="ord-payment" class="form-select">
-            <option>PIX</option><option>Dinheiro</option><option>Cartão</option><option>Fiado</option>
+            ${['PIX','Dinheiro','Cartão','Fiado'].map(op=>`<option${editOrder&&editOrder.payment===op?' selected':''}>${op}</option>`).join('')}
           </select>
         </div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label class="form-label">Data</label><input id="ord-date" class="form-input" type="date" value="${todayStr()}"></div>
+        <div class="form-group"><label class="form-label">Data</label><input id="ord-date" class="form-input" type="date" value="${editOrder?editOrder.date:todayStr()}"></div>
         <div class="form-group"><label class="form-label">Frete</label>
           <select id="ord-delivery" class="form-select">
-            <option value="0">Sem frete</option>
-            <option value="${settings.delivery_fee||6}">Cobrar ${fmt(settings.delivery_fee||6)}</option>
+            <option value="0"${editOrder&&!editOrder.delivery?' selected':''}>Sem frete</option>
+            <option value="${feeCharge}"${editOrder&&editOrder.delivery?' selected':''}>Cobrar ${fmt(feeCharge)}</option>
           </select>
         </div>
       </div>
-      <div class="form-group"><label class="form-label">Observações</label><textarea id="ord-obs" class="form-textarea" rows="2" placeholder="Observações do pedido..."></textarea></div>
-      <button class="btn-primary" onclick="saveOrder()">💾 Salvar Pedido</button>
+      <div class="form-group"><label class="form-label">Observações</label><textarea id="ord-obs" class="form-textarea" rows="2" placeholder="Observações do pedido...">${editOrder?(editOrder.obs||''):''}</textarea></div>
+      <button class="btn-primary" onclick="saveOrder()">💾 ${editOrder?'Atualizar Pedido':'Salvar Pedido'}</button>
+      ${editOrder?`<button class="btn-secondary" style="margin-top:8px;width:100%" onclick="editingOrderId=null;navigateTo('orders-list')">Cancelar Edição</button>`:''}
     </div>
   </div>`;
+  renderCart();
 }
 
 function cartAdd(productId) {
@@ -843,6 +1128,30 @@ function saveOrder() {
   const subtotal = orderCart.reduce((s,i)=>s+(i.price*i.qty),0);
   const total = subtotal+delivery;
   const orders = loadData('sabolli_orders')||[];
+  if (editingOrderId) {
+    const idx = orders.findIndex(o=>Number(o.id)===Number(editingOrderId));
+    if (idx===-1) { toast('Pedido não encontrado','error'); editingOrderId=null; orderCart=[]; navigateTo('orders-list'); return; }
+    const old = orders[idx];
+    orders[idx] = {
+      ...old, date, customer,
+      items: orderCart.map(i=>({id:i.id,name:i.name,price:i.price,qty:i.qty})),
+      canal, payment, total, delivery, obs
+    };
+    saveData('sabolli_orders', orders);
+    const txs = loadData('sabolli_financial_transactions')||[];
+    const linkedTx = txs.find(t => t.desc && new RegExp('^Venda #'+old.id+'(\\D|$)').test(t.desc));
+    if (linkedTx) {
+      linkedTx.value = total;
+      linkedTx.date = date;
+      linkedTx.desc = `Venda #${old.id} — ${customer}`;
+      saveData('sabolli_financial_transactions', txs);
+    }
+    editingOrderId = null;
+    orderCart = [];
+    toast('Pedido #'+old.id+' atualizado!');
+    navigateTo('orders-list');
+    return;
+  }
   const lastId = orders.length>0 ? Math.max(...orders.map(o=>Number(o.id)||0)) : 1248;
   const newOrder = {
     id: lastId+1,
@@ -897,16 +1206,56 @@ function orderRow(o) {
   return `<tr id="orow-${o.id}">
     <td><strong>#${o.id}</strong></td>
     <td>${fmtDate(o.date)}</td>
-    <td>${o.customer}<br><small style="color:#94A3B8;font-size:11px">${items.substring(0,40)}${items.length>40?'...':''}</small></td>
+    <td>${o.customer}${o.viaVoice?' <span title="Lançado por voz" style="font-size:11px">🎙️</span>':''}<br><small style="color:#94A3B8;font-size:11px">${items.substring(0,40)}${items.length>40?'...':''}</small></td>
     <td>${o.canal}</td>
     <td>${o.payment}</td>
     <td>${fmt(o.total)}</td>
     <td><span class="status-badge status-${(o.status||'').toLowerCase()}">${o.status}</span></td>
     <td style="white-space:nowrap">
       ${o.status==='Pendente'?`<button class="btn-success" onclick="markOrderPaid(${o.id})" style="margin-right:4px">✓ Pago</button>`:''}
+      <button class="btn-outline" onclick="openEditOrder(${o.id})" style="margin-right:4px">✏️</button>
       <button class="btn-danger" onclick="deleteOrder(${o.id})">🗑</button>
     </td>
   </tr>`;
+}
+
+function openEditOrder(id) {
+  editingOrderId = id;
+  navigateTo('edit-order');
+}
+
+// ===== HISTÓRICO DE PEDIDOS POR VOZ =====
+function renderVoiceOrders(c) {
+  const orders = (loadData('sabolli_orders')||[]).filter(o=>o.viaVoice);
+  const sorted = [...orders].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0) || b.date.localeCompare(a.date) || b.id-a.id);
+  c.innerHTML = `
+  <div class="section-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+      <div class="section-title" style="margin:0">🎙️ ${orders.length} pedido(s) lançado(s) por voz</div>
+      <button class="btn-outline" onclick="voiceNewOrder()">🎙️ Lançar por Voz</button>
+    </div>
+    ${sorted.length===0?'<div class="empty-state"><div class="empty-icon">🎙️</div><p>Nenhum pedido lançado por voz ainda</p></div>':
+    sorted.map(o=>voiceOrderRow(o)).join('')}
+  </div>`;
+}
+
+function voiceOrderRow(o) {
+  const items = Array.isArray(o.items) ? o.items.map(i=>typeof i==='string'?i:`${i.qty>1?i.qty+'x ':''}${i.name}`).join(', ') : '';
+  const when = o.createdAt ? new Date(o.createdAt).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : fmtDate(o.date);
+  return `<div class="tx-item" style="align-items:flex-start">
+    <div class="tx-ico-wrap" style="background:#F5F3FF">🎙️</div>
+    <div class="tx-info" style="flex:1">
+      <div class="tx-desc">#${o.id} · ${o.customer}</div>
+      <div class="tx-date" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">${when} · ${items} · ${o.canal} · ${o.payment}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+      <div class="tx-amount inc">${fmt(o.total)}</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn-outline" onclick="openEditOrder(${o.id})" style="padding:4px 8px">✏️</button>
+        <button class="btn-danger" onclick="deleteOrder(${o.id})" style="padding:4px 8px">🗑</button>
+      </div>
+    </div>
+  </div>`;
 }
 
 function filterOrders() {
@@ -1069,7 +1418,66 @@ function renderCustomers(c) {
 
 function custRow(c) {
   return `<tr><td>${c.id}</td><td><strong>${c.name}</strong></td><td>${c.phone||'—'}</td><td>${c.city||'—'}</td><td>${c.orders||0}</td>
-    <td><button class="btn-danger" onclick="deleteCustomer(${c.id})">🗑</button></td></tr>`;
+    <td style="white-space:nowrap"><button class="btn-outline" onclick="openEditCustomer(${c.id})" style="margin-right:4px">✏️</button><button class="btn-danger" onclick="deleteCustomer(${c.id})">🗑</button></td></tr>`;
+}
+
+function openEditCustomer(id) {
+  const customers = loadData('sabolli_customers')||[];
+  const cust = customers.find(c=>c.id===id);
+  if (!cust) return;
+  const existing = document.getElementById('edit-customer-popup');
+  if (existing) existing.remove();
+  const popup = document.createElement('div');
+  popup.id = 'edit-customer-popup';
+  popup.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);padding:20px';
+  popup.innerHTML = `
+    <div style="background:#fff;border-radius:20px;padding:24px;width:min(340px,92vw);box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+      <div style="font-weight:800;font-size:16px;color:#1E293B;margin-bottom:18px">✏️ Editar Cliente</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div>
+          <label style="font-size:12px;font-weight:700;color:#64748B;display:block;margin-bottom:4px">NOME</label>
+          <input id="edit-cust-name" value="${(cust.name||'').replace(/"/g,'&quot;')}" class="form-input" style="width:100%;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:#64748B;display:block;margin-bottom:4px">TELEFONE</label>
+          <input id="edit-cust-phone" value="${(cust.phone||'').replace(/"/g,'&quot;')}" class="form-input" style="width:100%;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:#64748B;display:block;margin-bottom:4px">BAIRRO</label>
+          <input id="edit-cust-city" value="${(cust.city||'').replace(/"/g,'&quot;')}" class="form-input" style="width:100%;box-sizing:border-box">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:20px">
+        <button onclick="saveEditCustomer(${id})" class="btn-primary" style="flex:1">Salvar</button>
+        <button onclick="document.getElementById('edit-customer-popup').remove()" class="btn-secondary">Cancelar</button>
+      </div>
+    </div>`;
+  popup.addEventListener('click', e => { if (e.target === popup) popup.remove(); });
+  document.body.appendChild(popup);
+  document.getElementById('edit-cust-name').focus();
+}
+
+function saveEditCustomer(id) {
+  const customers = loadData('sabolli_customers')||[];
+  const cust = customers.find(c=>c.id===id);
+  if (!cust) return;
+  const name = (document.getElementById('edit-cust-name').value||'').trim();
+  if (!name) { toast('Informe o nome','error'); return; }
+  const oldName = cust.name;
+  cust.name = name;
+  cust.phone = document.getElementById('edit-cust-phone').value;
+  cust.city = document.getElementById('edit-cust-city').value;
+  saveData('sabolli_customers', customers);
+  // Mantém o nome do cliente sincronizado nos pedidos existentes
+  if (oldName !== name) {
+    const orders = loadData('sabolli_orders')||[];
+    let changed = false;
+    orders.forEach(o=>{ if (o.customer===oldName) { o.customer = name; changed = true; } });
+    if (changed) saveData('sabolli_orders', orders);
+  }
+  document.getElementById('edit-customer-popup')?.remove();
+  toast('Cliente atualizado!');
+  navigateTo('customers');
 }
 
 function toggleAddCustomer() {
@@ -1588,6 +1996,7 @@ function renderTransactions(c) {
   c.innerHTML = `
   <div class="section-card">
     <div class="section-title">💰 Novo Lançamento</div>
+    <button onclick="voiceNewTransaction()" style="width:100%;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,#7C3AED,#5B21B6);color:#fff;font-size:14px;font-weight:800;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px">🎙️ Lançar por Voz</button>
     <div class="chip-row" style="margin-bottom:6px">
       <div class="chip active" id="tx-tipo-btn-entrada" onclick="setTxTipo('entrada')">📈 Entrada</div>
       <div class="chip" id="tx-tipo-btn-saída" onclick="setTxTipo('saída')">📤 Saída</div>
@@ -1664,11 +2073,106 @@ function renderTransactions(c) {
         <div class="tx-info" style="flex:1"><div class="tx-desc">${t.desc}${t.deliveryFee?` <span style="font-size:10px;background:#D1FAE5;color:#065F46;border-radius:4px;padding:1px 5px;font-weight:700">🚴 +${fmt(t.deliveryFee)}</span>`:''}</div><div class="tx-date" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">${fmtDate(t.date)} · ${t.category||''} ${statusTag}</div></div>
         <div style="display:flex;align-items:center;gap:8px">
           <div class="tx-amount ${t.type==='entrada'?'inc':'exp'}">${t.type==='entrada'?'+':'-'}${fmt(t.value)}</div>
+          <button class="btn-outline" onclick="openEditTx(${t.id})" style="padding:4px 8px">✏️</button>
           <button class="btn-danger" onclick="deleteTx(${t.id})" style="padding:4px 8px">🗑</button>
         </div>
       </div>`;
     }).join('')}
   </div>`;
+}
+
+function openEditTx(id) {
+  const txs = loadData('sabolli_financial_transactions')||[];
+  const t = txs.find(x=>x.id===id);
+  if (!t) return;
+  const allCats = loadCategories();
+  const cats = t.extractType==='pessoal' ? allCats.personal : allCats.transactions;
+  const accounts = loadData('sabolli_accounts')||[];
+  const moneyAccounts = accounts.filter(a=>a.type!=='cartão');
+  const existing = document.getElementById('edit-tx-popup');
+  if (existing) existing.remove();
+  const popup = document.createElement('div');
+  popup.id = 'edit-tx-popup';
+  popup.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);padding:20px';
+  popup.innerHTML = `
+    <div style="background:#fff;border-radius:20px;padding:24px;width:min(360px,92vw);max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+      <div style="font-weight:800;font-size:16px;color:#1E293B;margin-bottom:18px">✏️ Editar Lançamento</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div>
+          <label style="font-size:12px;font-weight:700;color:#64748B;display:block;margin-bottom:4px">TIPO</label>
+          <select id="edit-tx-tipo" class="form-select" style="width:100%;box-sizing:border-box">
+            <option value="entrada"${t.type==='entrada'?' selected':''}>📈 Entrada</option>
+            <option value="saída"${t.type==='saída'?' selected':''}>📤 Saída</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:#64748B;display:block;margin-bottom:4px">DESCRIÇÃO</label>
+          <input id="edit-tx-desc" value="${(t.desc||'').replace(/"/g,'&quot;')}" class="form-input" style="width:100%;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:#64748B;display:block;margin-bottom:4px">VALOR (R$)</label>
+          <input id="edit-tx-value" type="number" step="0.01" value="${t.value||0}" class="form-input" style="width:100%;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:#64748B;display:block;margin-bottom:4px">DATA</label>
+          <input id="edit-tx-date" type="date" value="${t.date||todayStr()}" class="form-input" style="width:100%;box-sizing:border-box">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:#64748B;display:block;margin-bottom:4px">CATEGORIA</label>
+          <select id="edit-tx-cat" class="form-select" style="width:100%;box-sizing:border-box">
+            ${cats.map(cat=>`<option${cat===t.category?' selected':''}>${cat}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:#64748B;display:block;margin-bottom:4px">CONTA / DINHEIRO</label>
+          <select id="edit-tx-account" class="form-select" style="width:100%;box-sizing:border-box">
+            <option value=""${!t.accountId?' selected':''}>— Sem conta —</option>
+            ${moneyAccounts.map(a=>`<option value="${a.id}"${t.accountId===a.id?' selected':''}>${a.name}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:20px">
+        <button onclick="saveEditTx(${id})" class="btn-primary" style="flex:1">Salvar</button>
+        <button onclick="document.getElementById('edit-tx-popup').remove()" class="btn-secondary">Cancelar</button>
+      </div>
+    </div>`;
+  popup.addEventListener('click', e => { if (e.target === popup) popup.remove(); });
+  document.body.appendChild(popup);
+  document.getElementById('edit-tx-desc').focus();
+}
+
+function saveEditTx(id) {
+  const txs = loadData('sabolli_financial_transactions')||[];
+  const t = txs.find(x=>x.id===id);
+  if (!t) return;
+  const desc = (document.getElementById('edit-tx-desc').value||'').trim();
+  const value = Number(document.getElementById('edit-tx-value').value);
+  if (!desc) { toast('Informe a descrição','error'); return; }
+  if (!value||value<=0) { toast('Informe o valor','error'); return; }
+  const newType = document.getElementById('edit-tx-tipo').value;
+  const newAccountId = document.getElementById('edit-tx-account').value ? Number(document.getElementById('edit-tx-account').value) : null;
+  // Reverte efeito antigo na conta antiga
+  if (t.accountId && (!t.status||t.status==='realizado')) {
+    const accs = loadData('sabolli_accounts')||[];
+    const acc = accs.find(a=>a.id===t.accountId);
+    if (acc) { acc.balance = (acc.balance||0) + (t.type==='entrada' ? -t.value : t.value); saveData('sabolli_accounts', accs); }
+  }
+  // Aplica novo efeito na conta nova
+  if (newAccountId && (!t.status||t.status==='realizado')) {
+    const accs = loadData('sabolli_accounts')||[];
+    const acc = accs.find(a=>a.id===newAccountId);
+    if (acc) { acc.balance = (acc.balance||0) + (newType==='entrada' ? value : -value); saveData('sabolli_accounts', accs); }
+  }
+  t.desc = desc;
+  t.value = value;
+  t.type = newType;
+  t.date = document.getElementById('edit-tx-date').value||t.date;
+  t.category = document.getElementById('edit-tx-cat').value;
+  t.accountId = newAccountId;
+  saveData('sabolli_financial_transactions', txs);
+  document.getElementById('edit-tx-popup')?.remove();
+  toast('Lançamento atualizado!');
+  navigateTo('transactions');
 }
 
 function setTxTipo(tipo) {
@@ -1829,7 +2333,7 @@ function txItemHtml(t, showDelete) {
     </div>
     <div style="display:flex;align-items:center;gap:6px">
       <div class="tx-amount ${t.type==='entrada'?'inc':'exp'}">${t.type==='entrada'?'+':'-'}${fmt(t.value)}</div>
-      ${showDelete?`<button onclick="event.stopPropagation();deleteTxExtract(${t.id})" class="btn-danger" style="padding:4px 8px">🗑</button>`:''}
+      ${showDelete?`<button onclick="event.stopPropagation();openEditTx(${t.id})" class="btn-outline" style="padding:4px 8px">✏️</button><button onclick="event.stopPropagation();deleteTxExtract(${t.id})" class="btn-danger" style="padding:4px 8px">🗑</button>`:''}
     </div>
   </div>`;
 }
@@ -3230,6 +3734,7 @@ function renderDelivery(c) {
   <div class="section-card">
     <div class="section-title">⚙️ Configurações de Entrega</div>
     <div class="form-group"><label class="form-label">Valor padrão da Taxa (R$)</label><input id="del-fee" class="form-input" type="number" step="0.50" value="${s.delivery_fee||6}"></div>
+    <div style="font-size:12px;color:#065F46;font-weight:600;background:#ECFDF5;border:1.5px solid #BBF7D0;border-radius:10px;padding:8px 12px;margin-bottom:12px">💡 Todo pedido com frete cobrado soma automaticamente +R$ 3,00 a esse valor. Hoje o frete cobrado no pedido é ${fmt(deliveryChargeAmount(s))}.</div>
     <div class="form-group"><label class="form-label">Área de Entrega</label><input id="del-area" class="form-input" type="text" value="${s.delivery_area||''}" placeholder="Ex: Santo André e região"></div>
     <button class="btn-primary" onclick="saveDelivery()">💾 Salvar</button>
   </div>`;
