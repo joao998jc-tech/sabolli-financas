@@ -1,4 +1,4 @@
-﻿// SABOLLI FINANÇAS v3.0
+﻿// SABOLLI FINANÇAS v3.1
 
 // ===== TEMAS =====
 const APP_THEMES = {
@@ -149,269 +149,6 @@ function saveData(key, data) {
 }
 function loadData(key) { try { const d=localStorage.getItem(key); return d?JSON.parse(d):null; } catch(e){return null;} }
 
-// ===== RECONHECIMENTO DE VOZ =====
-const NUM_WORDS = { zero:0,um:1,uma:1,dois:2,duas:2,tres:3,quatro:4,cinco:5,seis:6,sete:7,oito:8,nove:9,dez:10,
-  onze:11,doze:12,treze:13,quatorze:14,catorze:14,quinze:15,dezesseis:16,dezessete:17,dezoito:18,dezenove:19,vinte:20 };
-
-function normalizeText(s) {
-  return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim();
-}
-
-function capitalizeWords(s) { return (s||'').split(' ').filter(Boolean).map(w=>w[0].toUpperCase()+w.slice(1)).join(' '); }
-
-function parseMoneyValue(text) {
-  const t = normalizeText(text);
-  let m = t.match(/(\d+)\s*reais?\s*(?:e\s*)?(\d{1,2})?/);
-  if (m) {
-    const cents = m[2] ? Number(m[2].padEnd(2,'0').slice(0,2)) : 0;
-    return Number(m[1]) + cents/100;
-  }
-  m = t.match(/(\d+[.,]\d{1,2})/);
-  if (m) return Number(m[1].replace(',','.'));
-  m = t.match(/(\d+)/);
-  if (m) return Number(m[1]);
-  return 0;
-}
-
-function findNumberBefore(words, idx, maxLookback) {
-  for (let i=idx-1; i>=Math.max(0,idx-(maxLookback||3)); i--) {
-    const w = (words[i]||'').replace(/[^a-z0-9]/gi,'');
-    if (/^\d+$/.test(w)) return Number(w);
-    if (NUM_WORDS[w]!==undefined) return NUM_WORDS[w];
-  }
-  return 1;
-}
-
-function startVoiceCapture(onResult) {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { toast('Reconhecimento de voz não suportado neste navegador. Use o Chrome no Android.', 'error'); return; }
-  const rec = new SR();
-  rec.lang = 'pt-BR';
-  rec.continuous = false;
-  rec.interimResults = false;
-  rec.maxAlternatives = 1;
-  toast('🎙️ Ouvindo... fale o comando', 'warning');
-  rec.onresult = (e) => {
-    const transcript = e.results[0][0].transcript;
-    onResult(transcript);
-  };
-  rec.onerror = (e) => {
-    if (e.error === 'no-speech') toast('Não ouvi nada. Tente novamente.', 'error');
-    else if (e.error === 'not-allowed') toast('Permissão de microfone negada.', 'error');
-    else toast('Erro no reconhecimento de voz: ' + e.error, 'error');
-  };
-  try { rec.start(); } catch (err) { toast('Não foi possível iniciar o microfone.', 'error'); }
-}
-
-// ---- Comando de voz: Novo Pedido ----
-function voiceNewOrder() {
-  startVoiceCapture(processVoiceOrder);
-}
-
-function processVoiceOrder(rawTranscript) {
-  const t = normalizeText(rawTranscript);
-  const words = t.split(/\s+/);
-  const products = loadData('sabolli_products')||[];
-
-  let canal = 'Loja Física';
-  if (/\bdelivery\b|\bentrega\b/.test(t)) canal = 'Delivery';
-  else if (/\brevenda\b/.test(t)) canal = 'Revenda';
-  else if (/\bwhatsapp\b|\bzap\b/.test(t)) canal = 'WhatsApp';
-  else if (/\bretirada\b|\bloja\b|\bbalcao\b/.test(t)) canal = 'Loja Física';
-
-  let payment = 'PIX';
-  if (/\bdinheiro\b/.test(t)) payment = 'Dinheiro';
-  else if (/\bcartao\b/.test(t)) payment = 'Cartão';
-  else if (/\bfiado\b/.test(t)) payment = 'Fiado';
-  else if (/\bpix\b/.test(t)) payment = 'PIX';
-
-  let customer = 'Cliente Avulso';
-  const mCust = t.match(/cliente\s+([a-z\s]+?)(?=\s+(pagou|pagamento|com|delivery|entrega|retirada|loja|revenda|whatsapp|pix|dinheiro|cartao|fiado|produtos?|itens?)\b|$)/);
-  if (mCust && mCust[1].trim()) customer = capitalizeWords(mCust[1].trim());
-
-  const cart = [];
-  products.forEach(p => {
-    const pname = normalizeText(p.name);
-    const nameWords = pname.split(/\s+/).filter(w=>w.length>3);
-    for (const nw of nameWords) {
-      const idx = words.indexOf(nw);
-      if (idx>=0) {
-        const qty = findNumberBefore(words, idx, 3);
-        cart.push({ id:p.id, name:p.name, price:p.price, qty: qty||1 });
-        break;
-      }
-    }
-  });
-
-  if (cart.length===0) {
-    toast('Não identifiquei nenhum produto no pedido. Fale o nome do produto claramente.', 'error');
-    return;
-  }
-
-  const settings = loadData('sabolli_settings')||{delivery_fee:6};
-  const delivery = canal==='Delivery' ? deliveryChargeAmount(settings) : 0;
-  createOrderFromVoice({ customer, canal, payment, delivery, cart });
-}
-
-function createOrderFromVoice({ customer, canal, payment, delivery, cart, date }) {
-  const orders = loadData('sabolli_orders')||[];
-  const lastId = orders.length>0 ? Math.max(...orders.map(o=>Number(o.id)||0)) : 1248;
-  const subtotal = cart.reduce((s,i)=>s+(i.price*i.qty),0);
-  const total = subtotal + delivery;
-  const d = date || todayStr();
-  const newOrder = { id:lastId+1, date:d, customer, items:cart, canal, payment, status: payment==='Fiado'?'Pendente':'Pago', total, delivery, obs:'Lançado por comando de voz', viaVoice:true, createdAt:Date.now() };
-  orders.unshift(newOrder);
-  saveData('sabolli_orders', orders);
-  if (newOrder.status==='Pago') {
-    const txs = loadData('sabolli_financial_transactions')||[];
-    txs.unshift({ id:nextId(txs), date:d, desc:`Venda #${newOrder.id} — ${customer}`, type:'entrada', value:total, category:'Vendas' });
-    saveData('sabolli_financial_transactions', txs);
-  }
-  const itemsDesc = cart.map(i=>`${i.qty}x ${i.name}`).join(', ');
-  toast(`🎙️ Pedido #${newOrder.id}: ${customer} · ${itemsDesc} · ${payment} · ${canal}${delivery?' · frete '+fmt(delivery):''}`);
-  if (['new-order','orders-list','edit-order'].includes(currentSection)) navigateTo('orders-list');
-}
-
-// ---- Comando de voz: Lançamento Entrada/Saída ----
-function voiceNewTransaction() {
-  startVoiceCapture(processVoiceTransaction);
-}
-
-function processVoiceTransaction(rawTranscript) {
-  const t = normalizeText(rawTranscript);
-
-  let tipo = 'entrada';
-  if (/\b(paguei|gastei|comprei|saida)\b/.test(t)) tipo = 'saída';
-  else if (/\b(recebi|entrada|venda|ganhei)\b/.test(t)) tipo = 'entrada';
-
-  const value = parseMoneyValue(t);
-  if (!value || value<=0) {
-    toast('Não identifiquei o valor. Diga "valor" seguido do número.', 'error');
-    return;
-  }
-
-  const accounts = loadData('sabolli_accounts')||[];
-  const moneyAccounts = accounts.filter(a=>a.type!=='cartão');
-  let accountId = null, accLabel = '';
-  if (/\bdinheiro\b/.test(t)) {
-    accLabel = 'Dinheiro';
-  } else {
-    for (const a of moneyAccounts) {
-      const an = normalizeText(a.name);
-      const ab = normalizeText(a.bank||'');
-      if ((an && t.includes(an)) || (ab && t.includes(ab))) { accountId = a.id; accLabel = a.name; break; }
-    }
-    if (!accountId && /conta/.test(t) && moneyAccounts.length) { accountId = moneyAccounts[0].id; accLabel = moneyAccounts[0].name; }
-  }
-
-  let desc = rawTranscript
-    .replace(/\b(recebi|paguei|gastei|comprei|ganhei)\b/gi,'')
-    .replace(/\bpagamento\s+de\b/gi,'')
-    .replace(/\bvalor\s*[\d.,]+\s*(reais)?\b/gi,'')
-    .replace(/\bna conta corrente\b.*$/gi,'')
-    .replace(/\bna conta\b.*$/gi,'')
-    .replace(/\bem dinheiro\b.*$/gi,'')
-    .replace(/\bno cart[aã]o\b.*$/gi,'')
-    .replace(/\s{2,}/g,' ')
-    .trim();
-  if (!desc) desc = tipo==='entrada' ? 'Recebimento' : 'Pagamento';
-  desc = capitalizeWords(desc);
-
-  createTransactionFromVoice({ tipo, desc, value, accountId, accLabel });
-}
-
-function createTransactionFromVoice({ tipo, desc, value, accountId, accLabel, date }) {
-  const d = date || todayStr();
-  const category = tipo==='entrada' ? 'Vendas' : 'Outros';
-  if (accountId) {
-    const accs = loadData('sabolli_accounts')||[];
-    const acc = accs.find(a=>a.id===accountId);
-    if (acc) { acc.balance = (acc.balance||0) + (tipo==='entrada'?value:-value); saveData('sabolli_accounts', accs); }
-  }
-  const txs = loadData('sabolli_financial_transactions')||[];
-  txs.unshift({ id:nextId(txs), date:d, desc, type:tipo, value, category, accountId: accountId||null, extractType:'negocio', status:'realizado' });
-  saveData('sabolli_financial_transactions', txs);
-  toast(`🎙️ Lançamento: ${tipo==='entrada'?'+':'-'}${fmt(value)} · ${desc}${accLabel?' · '+accLabel:''}`);
-  if (['transactions','extract'].includes(currentSection)) navigateTo(currentSection);
-}
-
-// ---- Comando de voz: Ajustes (editar/corrigir por voz) ----
-function voiceAdjust() {
-  startVoiceCapture(processVoiceAdjust);
-}
-
-function processVoiceAdjust(rawTranscript) {
-  const t = normalizeText(rawTranscript);
-
-  let m = t.match(/pedido\s+(?:d[eo]\s+)?(?:cliente\s+)?([a-z\s]+?)\s+para\s+pago/);
-  if (m) {
-    const name = m[1].trim();
-    const orders = loadData('sabolli_orders')||[];
-    const match = orders.filter(o=>normalizeText(o.customer).includes(name)).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id)[0];
-    if (!match) { toast('Não encontrei nenhum pedido de "'+name+'"','error'); return; }
-    customConfirm(`Marcar pedido #${match.id} de ${match.customer} como Pago?`, ()=>markOrderPaid(match.id));
-    return;
-  }
-
-  m = t.match(/valor\s+do\s+(pedido|lancamento)\s+(?:d[eo]\s+)?([a-z\s]+?)\s+para\s+([\d.,]+)/);
-  if (m) {
-    const kind = m[1], name = m[2].trim(), newValue = Number(m[3].replace(',','.'));
-    if (kind==='pedido') {
-      const orders = loadData('sabolli_orders')||[];
-      const match = orders.filter(o=>normalizeText(o.customer).includes(name)).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id)[0];
-      if (!match) { toast('Não encontrei nenhum pedido de "'+name+'"','error'); return; }
-      customConfirm(`Mudar valor do pedido #${match.id} de ${match.customer} para ${fmt(newValue)}?`, ()=>{
-        const orders2 = loadData('sabolli_orders')||[];
-        const o = orders2.find(x=>x.id===match.id);
-        o.total = newValue;
-        saveData('sabolli_orders', orders2);
-        toast('Valor do pedido #'+o.id+' atualizado!');
-        navigateTo('orders-list');
-      });
-    } else {
-      const txs = loadData('sabolli_financial_transactions')||[];
-      const match = txs.filter(x=>normalizeText(x.desc||'').includes(name)).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id)[0];
-      if (!match) { toast('Não encontrei nenhum lançamento de "'+name+'"','error'); return; }
-      customConfirm(`Mudar valor do lançamento "${match.desc}" para ${fmt(newValue)}?`, ()=>{
-        const txs2 = loadData('sabolli_financial_transactions')||[];
-        const tx = txs2.find(x=>x.id===match.id);
-        if (tx.accountId) {
-          const accs = loadData('sabolli_accounts')||[];
-          const acc = accs.find(a=>a.id===tx.accountId);
-          if (acc) { acc.balance = (acc.balance||0) + (tx.type==='entrada' ? (newValue-tx.value) : (tx.value-newValue)); saveData('sabolli_accounts', accs); }
-        }
-        tx.value = newValue;
-        saveData('sabolli_financial_transactions', txs2);
-        toast('Valor do lançamento atualizado!');
-        navigateTo('transactions');
-      });
-    }
-    return;
-  }
-
-  m = t.match(/(?:exclui|excluir|apaga|apagar|cancela|cancelar)\s+o\s+pedido\s+(?:d[eo]\s+)?([a-z\s]+)/);
-  if (m) {
-    const name = m[1].trim();
-    const orders = loadData('sabolli_orders')||[];
-    const match = orders.filter(o=>normalizeText(o.customer).includes(name)).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id)[0];
-    if (!match) { toast('Não encontrei nenhum pedido de "'+name+'"','error'); return; }
-    deleteOrder(match.id);
-    return;
-  }
-
-  m = t.match(/(?:exclui|excluir|apaga|apagar|cancela|cancelar)\s+o\s+lancamento\s+(?:d[eo]\s+)?([a-z\s]+)/);
-  if (m) {
-    const name = m[1].trim();
-    const txs = loadData('sabolli_financial_transactions')||[];
-    const match = txs.filter(x=>normalizeText(x.desc||'').includes(name)).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id)[0];
-    if (!match) { toast('Não encontrei nenhum lançamento de "'+name+'"','error'); return; }
-    deleteTx(match.id);
-    return;
-  }
-
-  toast('Não entendi o ajuste. Ex: "muda o pedido de João para pago", "corrige o valor do lançamento de aluguel para 50"', 'error');
-}
-
 // ===== MENUS =====
 const personalMenu = [
   { group:'INÍCIO', items:[
@@ -421,7 +158,6 @@ const personalMenu = [
     { id:'transactions', label:'Lançamentos', icon:'💰' },
     { id:'extract', label:'Extrato', icon:'📄' },
     { id:'accounts', label:'Contas e Cartões', icon:'💳' },
-    { id:'pix-voice', label:'PIX por Voz', icon:'⚡' },
     { id:'planning', label:'Planejamento', icon:'📐' }
   ]},
   { group:'CONFIGURAÇÕES', items:[
@@ -438,7 +174,6 @@ const businessMenu = [
   { group:'VENDAS', items:[
     { id:'new-order', label:'Novo Pedido', icon:'🛒' },
     { id:'orders-list', label:'Lista de Pedidos', icon:'📋' },
-    { id:'voice-orders', label:'Pedidos por Voz', icon:'🎙️' },
     { id:'daily-sales', label:'Vendas Diárias', icon:'📅' }
   ]},
   { group:'CLIENTES', items:[
@@ -684,13 +419,13 @@ function renderSidebar() {
 
 // ===== HEADER =====
 const pageTitles = {
-  dashboard:'Dashboard','new-order':'Novo Pedido','edit-order':'Editar Pedido','orders-list':'Lista de Pedidos','voice-orders':'Pedidos por Voz','daily-sales':'Vendas Diárias',
+  dashboard:'Dashboard','new-order':'Novo Pedido','edit-order':'Editar Pedido','orders-list':'Lista de Pedidos','daily-sales':'Vendas Diárias',
   customers:'Clientes',resellers:'Pontos de Revenda',products:'Produtos','stock-mgmt':'Estoque',
   'stock-moves':'Movimentação de Estoque','new-purchase':'Nova Compra',purchases:'Histórico de Compras',
   inputs:'Insumos',transactions:'Lançamentos Financeiros',extract:'Extrato',accounts:'Contas e Cartões',
   cmv:'CMV',ticket:'Ticket Médio',goals:'Metas',categories:'Categorias',delivery:'Taxa de Entrega',
   company:'Dados da Empresa',suppliers:'Fornecedores',planning:'Planejamento Financeiro',
-  'ficha-tecnica':'Ficha Técnica', temas:'Temas do App', 'pix-voice':'PIX por Voz'
+  'ficha-tecnica':'Ficha Técnica', temas:'Temas do App'
 };
 
 function updateHeader() {
@@ -717,7 +452,6 @@ function renderPage(c, s) {
   if (s==='new-order') return renderNewOrder(c);
   if (s==='edit-order') return renderNewOrder(c);
   if (s==='orders-list') return renderOrdersList(c);
-  if (s==='voice-orders') return renderVoiceOrders(c);
   if (s==='daily-sales') return renderDailySales(c);
   if (s==='customers') return renderCustomers(c);
   if (s==='products') return renderProducts(c);
@@ -740,7 +474,6 @@ function renderPage(c, s) {
   if (s==='suppliers') return renderSuppliers(c);
   if (s==='planning') return renderPlanning(c);
   if (s==='ficha-tecnica') return renderFichaTecnica(c);
-  if (s==='pix-voice' && window.renderPixVoice) return renderPixVoice(c);
   c.innerHTML = '<div style="padding:40px;text-align:center;color:#94A3B8">Em desenvolvimento...</div>';
 }
 
@@ -1029,7 +762,6 @@ function renderNewOrder(c) {
   }
   c.innerHTML = `
   <div class="form-page">
-    <button onclick="voiceNewOrder()" style="width:100%;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,#7C3AED,#5B21B6);color:#fff;font-size:14px;font-weight:800;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px">🎙️ Lançar Pedido por Voz</button>
     <div class="section-card">
       <div class="section-title">🍽️ Selecionar Produtos</div>
       <div class="product-grid">
@@ -1208,7 +940,7 @@ function orderRow(o) {
   return `<tr id="orow-${o.id}">
     <td><strong>#${o.id}</strong></td>
     <td>${fmtDate(o.date)}</td>
-    <td>${o.customer}${o.viaVoice?' <span title="Lançado por voz" style="font-size:11px">🎙️</span>':''}<br><small style="color:#94A3B8;font-size:11px">${items.substring(0,40)}${items.length>40?'...':''}</small></td>
+    <td>${o.customer}<br><small style="color:#94A3B8;font-size:11px">${items.substring(0,40)}${items.length>40?'...':''}</small></td>
     <td>${o.canal}</td>
     <td>${o.payment}</td>
     <td>${fmt(o.total)}</td>
@@ -1224,40 +956,6 @@ function orderRow(o) {
 function openEditOrder(id) {
   editingOrderId = id;
   navigateTo('edit-order');
-}
-
-// ===== HISTÓRICO DE PEDIDOS POR VOZ =====
-function renderVoiceOrders(c) {
-  const orders = (loadData('sabolli_orders')||[]).filter(o=>o.viaVoice);
-  const sorted = [...orders].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0) || b.date.localeCompare(a.date) || b.id-a.id);
-  c.innerHTML = `
-  <div class="section-card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-      <div class="section-title" style="margin:0">🎙️ ${orders.length} pedido(s) lançado(s) por voz</div>
-      <button class="btn-outline" onclick="voiceNewOrder()">🎙️ Lançar por Voz</button>
-    </div>
-    ${sorted.length===0?'<div class="empty-state"><div class="empty-icon">🎙️</div><p>Nenhum pedido lançado por voz ainda</p></div>':
-    sorted.map(o=>voiceOrderRow(o)).join('')}
-  </div>`;
-}
-
-function voiceOrderRow(o) {
-  const items = Array.isArray(o.items) ? o.items.map(i=>typeof i==='string'?i:`${i.qty>1?i.qty+'x ':''}${i.name}`).join(', ') : '';
-  const when = o.createdAt ? new Date(o.createdAt).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : fmtDate(o.date);
-  return `<div class="tx-item" style="align-items:flex-start">
-    <div class="tx-ico-wrap" style="background:#F5F3FF">🎙️</div>
-    <div class="tx-info" style="flex:1">
-      <div class="tx-desc">#${o.id} · ${o.customer}</div>
-      <div class="tx-date" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">${when} · ${items} · ${o.canal} · ${o.payment}</div>
-    </div>
-    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-      <div class="tx-amount inc">${fmt(o.total)}</div>
-      <div style="display:flex;gap:6px">
-        <button class="btn-outline" onclick="openEditOrder(${o.id})" style="padding:4px 8px">✏️</button>
-        <button class="btn-danger" onclick="deleteOrder(${o.id})" style="padding:4px 8px">🗑</button>
-      </div>
-    </div>
-  </div>`;
 }
 
 function filterOrders() {
@@ -1998,7 +1696,6 @@ function renderTransactions(c) {
   c.innerHTML = `
   <div class="section-card">
     <div class="section-title">💰 Novo Lançamento</div>
-    <button onclick="voiceNewTransaction()" style="width:100%;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,#7C3AED,#5B21B6);color:#fff;font-size:14px;font-weight:800;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px">🎙️ Lançar por Voz</button>
     <div class="chip-row" style="margin-bottom:6px">
       <div class="chip active" id="tx-tipo-btn-entrada" onclick="setTxTipo('entrada')">📈 Entrada</div>
       <div class="chip" id="tx-tipo-btn-saída" onclick="setTxTipo('saída')">📤 Saída</div>
