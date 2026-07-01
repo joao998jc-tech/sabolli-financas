@@ -1,4 +1,4 @@
-﻿// SABOLLI FINANÇAS v2.9
+﻿// SABOLLI FINANÇAS v3.0
 
 // ===== TEMAS =====
 const APP_THEMES = {
@@ -421,6 +421,7 @@ const personalMenu = [
     { id:'transactions', label:'Lançamentos', icon:'💰' },
     { id:'extract', label:'Extrato', icon:'📄' },
     { id:'accounts', label:'Contas e Cartões', icon:'💳' },
+    { id:'pix-voice', label:'PIX por Voz', icon:'⚡' },
     { id:'planning', label:'Planejamento', icon:'📐' }
   ]},
   { group:'CONFIGURAÇÕES', items:[
@@ -689,7 +690,7 @@ const pageTitles = {
   inputs:'Insumos',transactions:'Lançamentos Financeiros',extract:'Extrato',accounts:'Contas e Cartões',
   cmv:'CMV',ticket:'Ticket Médio',goals:'Metas',categories:'Categorias',delivery:'Taxa de Entrega',
   company:'Dados da Empresa',suppliers:'Fornecedores',planning:'Planejamento Financeiro',
-  'ficha-tecnica':'Ficha Técnica', temas:'Temas do App'
+  'ficha-tecnica':'Ficha Técnica', temas:'Temas do App', 'pix-voice':'PIX por Voz'
 };
 
 function updateHeader() {
@@ -739,6 +740,7 @@ function renderPage(c, s) {
   if (s==='suppliers') return renderSuppliers(c);
   if (s==='planning') return renderPlanning(c);
   if (s==='ficha-tecnica') return renderFichaTecnica(c);
+  if (s==='pix-voice' && window.renderPixVoice) return renderPixVoice(c);
   c.innerHTML = '<div style="padding:40px;text-align:center;color:#94A3B8">Em desenvolvimento...</div>';
 }
 
@@ -3742,7 +3744,9 @@ function renderDelivery(c) {
 
 function saveDelivery() {
   const s = loadData('sabolli_settings')||{};
-  s.delivery_fee = Number(document.getElementById('del-fee').value)||6;
+  const feeInput = document.getElementById('del-fee').value;
+  const feeNum = Number(feeInput);
+  s.delivery_fee = feeInput!=='' && !isNaN(feeNum) ? feeNum : 6;
   s.delivery_area = document.getElementById('del-area').value;
   saveData('sabolli_settings', s);
   toast('Configurações salvas!');

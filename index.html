@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/svg+xml" href="icon.svg">
-<title>SABOLLI FINANÇAS v2.9</title>
+<title>SABOLLI FINANÇAS v3.0</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -107,7 +107,7 @@
     <nav class="sidebar-nav" id="sidebarNavPersonal"></nav>
     <div class="sidebar-footer">
       <button onclick="forceUpdate()" style="width:100%;margin-bottom:8px;padding:8px;border-radius:10px;border:1.5px solid #BFDBFE;background:#EFF6FF;color:#2563EB;font-size:13px;font-weight:700;cursor:pointer">🔄 Atualizar App</button>
-      <p>SABOLLI FINANÇAS v2.9</p>
+      <p>SABOLLI FINANÇAS v3.0</p>
       <p>© 2026 Todos os direitos reservados</p>
     </div>
   </aside>
@@ -127,7 +127,7 @@
     <nav class="sidebar-nav" id="sidebarNavBusiness"></nav>
     <div class="sidebar-footer sidebar-footer-biz">
       <button onclick="forceUpdate()" style="width:100%;margin-bottom:8px;padding:8px;border-radius:10px;border:1.5px solid #BFDBFE;background:rgba(255,255,255,0.15);color:#fff;font-size:13px;font-weight:700;cursor:pointer">🔄 Atualizar App</button>
-      <p>SABOLLI FINANÇAS v2.9</p>
+      <p>SABOLLI FINANÇAS v3.0</p>
       <p>© 2026 Todos os direitos reservados</p>
     </div>
   </aside>
@@ -200,6 +200,8 @@
 </div>
 
 <script src="app.js"></script>
+<script src="pix-core.js"></script>
+<script src="pix.js"></script>
 <script type="module" src="firebase-init.js"></script>
 <script>
   let _waitingSW = null;
