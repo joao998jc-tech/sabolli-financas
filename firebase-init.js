@@ -149,24 +149,32 @@ async function syncWidgetData(uid) {
 // Debounce: agrupa escritas em lote a cada 2s para não sobrecarregar o Firestore
 const _syncQueue = {};
 let _syncTimer = null;
+async function _flushSyncQueue() {
+  clearTimeout(_syncTimer);
+  _syncTimer = null;
+  if (!currentUid) return;
+  const entries = Object.entries(_syncQueue);
+  if (!entries.length) return;
+  for (const k in _syncQueue) delete _syncQueue[k];
+  for (const [k, v] of entries) {
+    try { await setDoc(doc(db, 'users', currentUid, 'data', k), { v }); } catch(e) {}
+  }
+  syncWidgetData(currentUid);
+}
 window.syncSaveData = (key, data) => {
   if (!currentUid) return;
   _syncQueue[key] = data;
   clearTimeout(_syncTimer);
-  _syncTimer = setTimeout(async () => {
-    const entries = Object.entries(_syncQueue);
-    for (const k in _syncQueue) delete _syncQueue[k];
-    for (const [k, v] of entries) {
-      try { await setDoc(doc(db, 'users', currentUid, 'data', k), { v }); } catch(e) {}
-    }
-    if (Object.keys(_syncQueue).length === 0) syncWidgetData(currentUid);
-  }, 2000);
+  _syncTimer = setTimeout(_flushSyncQueue, 2000);
 };
 
 async function loadFromCloud(uid) {
+  // Garante que alterações locais ainda não enviadas não sejam perdidas
+  await _flushSyncQueue();
   try {
     const snap = await getDocs(collection(db, 'users', uid, 'data'));
     snap.forEach(d => {
+      if (_syncQueue[d.id] !== undefined) return; // escrita pendente mais recente, não sobrescreve
       if (d.data().v !== undefined) {
         localStorage.setItem(d.id, JSON.stringify(d.data().v));
       }
