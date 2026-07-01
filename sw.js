@@ -1,4 +1,4 @@
-const CACHE = 'sabolli-v17';
+const CACHE = 'sabolli-v18';
 // Arquivos que NUNCA devem vir do cache — sempre busca a versão mais recente
 const NETWORK_ONLY = ['app.js', 'index.html', 'firebase-init.js', './app.js', './index.html', './firebase-init.js', '/app.js', '/index.html', '/firebase-init.js'];
 // Arquivos estáticos que podem ser cacheados (inclui o widget)

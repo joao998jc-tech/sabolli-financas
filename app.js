@@ -1,4 +1,4 @@
-﻿// SABOLLI FINANÇAS v2.7
+﻿// SABOLLI FINANÇAS v2.8
 
 // ===== TEMAS =====
 const APP_THEMES = {
@@ -87,6 +87,7 @@ let currentBillCardId = null;
 let currentBillMonth = null;
 let currentPersonalMonth = null;
 let currentExtractTab = 'negocio';
+let currentSalesPeriod = 'all';
 
 // ===== HELPERS =====
 function todayStr() {
@@ -943,41 +944,101 @@ function deleteOrder(id) {
 }
 
 // ===== VENDAS DIÁRIAS =====
-function renderDailySales(c) {
+function computeDailySales(period) {
   const orders = loadData('sabolli_orders')||[];
+  const saleTxs = (loadData('sabolli_financial_transactions')||[]).filter(t=>t.markAsSale && t.type==='entrada' && (!t.status||t.status==='realizado'));
   const byDay = {};
-  orders.forEach(o=>{ if(!byDay[o.date])byDay[o.date]=[]; byDay[o.date].push(o); });
-  const days = Object.keys(byDay).sort((a,b)=>b.localeCompare(a));
-  const totalFat = orders.reduce((s,o)=>s+(o.total||0),0);
-  const totalPed = orders.length;
+  orders.forEach(o=>{
+    if (!o.date) return;
+    if (!byDay[o.date]) byDay[o.date] = { orders:[], extras:[] };
+    byDay[o.date].orders.push(o);
+  });
+  saleTxs.forEach(t=>{
+    if (!t.date) return;
+    if (!byDay[t.date]) byDay[t.date] = { orders:[], extras:[] };
+    byDay[t.date].extras.push(t);
+  });
+  let days = Object.keys(byDay).filter(d=>matchesSalesPeriod(d, period));
+  days.sort((a,b)=>b.localeCompare(a));
+  let totalGeral = 0, totalPedidos = 0;
+  days.forEach(d=>{
+    const g = byDay[d];
+    g.ordersTotal = g.orders.reduce((s,o)=>s+(o.total||0),0);
+    g.ordersPaid = g.orders.filter(o=>o.status==='Pago').reduce((s,o)=>s+(o.total||0),0);
+    g.extrasTotal = g.extras.reduce((s,t)=>s+(t.value||0),0);
+    g.dayTotal = g.ordersTotal + g.extrasTotal;
+    totalGeral += g.dayTotal;
+    totalPedidos += g.orders.length;
+  });
+  return { days, byDay, totalGeral, totalPedidos };
+}
+
+function matchesSalesPeriod(dateStr, period) {
+  if (!period || period==='all') return true;
+  if (period==='today') return dateStr === todayStr();
+  if (period==='7d') {
+    const diff = (new Date(todayStr()+'T00:00:00') - new Date(dateStr+'T00:00:00')) / 86400000;
+    return diff>=0 && diff<7;
+  }
+  if (period==='month') return dateStr.startsWith(currentMonthStr());
+  if (period==='lastmonth') return dateStr.startsWith(addMonths(currentMonthStr(),-1));
+  return true;
+}
+
+function renderDailySalesList(days, byDay) {
+  if (!days.length) return '<div class="empty-state"><div class="empty-icon">📅</div><p>Nenhuma venda registrada neste período</p></div>';
+  return days.map(day=>{
+    const g = byDay[day];
+    return `<div class="day-group">
+      <div class="day-header">
+        <div><div class="day-date">${fmtDate(day)}</div><div style="font-size:11px;color:#94A3B8">${g.orders.length} pedido${g.orders.length!==1?'s':''}${g.extras.length?` · ${g.extras.length} lançamento${g.extras.length!==1?'s':''} extra`:''}</div></div>
+        <div style="text-align:right"><div class="day-total">${fmt(g.dayTotal)}</div><div style="font-size:11px;color:#10B981">Recebido: ${fmt(g.ordersPaid + g.extrasTotal)}</div></div>
+      </div>
+      ${g.orders.length?`<div style="overflow-x:auto"><table class="mini-table">
+        <thead><tr><th>#</th><th>Cliente</th><th>Pagamento</th><th>Total</th><th>Status</th></tr></thead>
+        <tbody>${g.orders.map(o=>`<tr>
+          <td>#${o.id}</td><td>${o.customer}</td><td>${o.payment}</td>
+          <td>${fmt(o.total)}</td>
+          <td><span class="status-badge status-${(o.status||'').toLowerCase()}">${o.status}</span></td>
+        </tr>`).join('')}</tbody>
+      </table></div>`:''}
+      ${g.extras.length?`<div style="margin-top:8px">${g.extras.map(t=>`<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:6px 10px;margin-bottom:4px">
+        <span>🏷️ ${t.desc}</span><span style="font-weight:700;color:#15803D">+${fmt(t.value)}</span>
+      </div>`).join('')}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function filterDailySales(period) {
+  currentSalesPeriod = period;
+  const { days, byDay } = computeDailySales(period);
+  const el = document.getElementById('daily-sales-list');
+  if (el) el.innerHTML = renderDailySalesList(days, byDay);
+}
+
+function renderDailySales(c) {
+  const { days, byDay, totalGeral, totalPedidos } = computeDailySales(currentSalesPeriod);
   c.innerHTML = `
   <div class="kpi-mini-row">
-    <div class="kpi-mini"><div class="kpi-mini-label">Total Geral</div><div class="kpi-mini-value">${fmt(totalFat)}</div></div>
-    <div class="kpi-mini"><div class="kpi-mini-label">Pedidos</div><div class="kpi-mini-value">${totalPed}</div></div>
+    <div class="kpi-mini"><div class="kpi-mini-label">Total no período</div><div class="kpi-mini-value">${fmt(totalGeral)}</div></div>
+    <div class="kpi-mini"><div class="kpi-mini-label">Pedidos</div><div class="kpi-mini-value">${totalPedidos}</div></div>
     <div class="kpi-mini"><div class="kpi-mini-label">Dias ativos</div><div class="kpi-mini-value">${days.length}</div></div>
   </div>
   <div class="section-card">
-    <div class="section-title">📅 Vendas por Dia</div>
-    ${days.map(day=>{
-      const dayOrders = byDay[day];
-      const dayTotal = dayOrders.reduce((s,o)=>s+(o.total||0),0);
-      const dayPaid = dayOrders.filter(o=>o.status==='Pago').reduce((s,o)=>s+(o.total||0),0);
-      return `<div class="day-group">
-        <div class="day-header">
-          <div><div class="day-date">${fmtDate(day)}</div><div style="font-size:11px;color:#94A3B8">${dayOrders.length} pedido${dayOrders.length!==1?'s':''}</div></div>
-          <div style="text-align:right"><div class="day-total">${fmt(dayTotal)}</div><div style="font-size:11px;color:#10B981">Recebido: ${fmt(dayPaid)}</div></div>
-        </div>
-        <div style="overflow-x:auto"><table class="mini-table">
-          <thead><tr><th>#</th><th>Cliente</th><th>Pagamento</th><th>Total</th><th>Status</th></tr></thead>
-          <tbody>${dayOrders.map(o=>`<tr>
-            <td>#${o.id}</td><td>${o.customer}</td><td>${o.payment}</td>
-            <td>${fmt(o.total)}</td>
-            <td><span class="status-badge status-${(o.status||'').toLowerCase()}">${o.status}</span></td>
-          </tr>`).join('')}</tbody>
-        </table></div>
-      </div>`;
-    }).join('') || '<div class="empty-state"><div class="empty-icon">📅</div><p>Nenhuma venda registrada</p></div>'}
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      <div class="section-title" style="margin:0">📅 Vendas por Dia</div>
+      <select class="filter-select" id="sales-period-filter" onchange="filterDailySales(this.value)">
+        <option value="all">Todos os dias</option>
+        <option value="today">Hoje</option>
+        <option value="7d">Últimos 7 dias</option>
+        <option value="month">Este mês</option>
+        <option value="lastmonth">Mês passado</option>
+      </select>
+    </div>
+    <div id="daily-sales-list">${renderDailySalesList(days, byDay)}</div>
   </div>`;
+  const sel = document.getElementById('sales-period-filter');
+  if (sel) sel.value = currentSalesPeriod;
 }
 
 // ===== CLIENTES =====
@@ -1561,6 +1622,13 @@ function renderTransactions(c) {
         ${moneyAccounts.length>0?'<option value="">— Sem conta —</option>':''}
       </select>
     </div>
+    <div id="tx-sale-check-group" class="form-group" style="background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:12px;padding:12px 14px;margin-bottom:0">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;font-size:14px;color:#2563EB">
+        <input type="checkbox" id="tx-mark-sale" style="width:18px;height:18px;cursor:pointer;accent-color:#2563EB">
+        🏷️ Marcar como Venda do Dia
+      </label>
+      <div style="font-size:11px;color:#1D4ED8;margin-top:4px;font-weight:600">💡 Soma o valor deste lançamento ao total de "Vendas Diárias" na data escolhida</div>
+    </div>
     <div id="tx-delivery-check-group" class="form-group" style="background:#F0FDF4;border:1.5px solid #BBF7D0;border-radius:12px;padding:12px 14px;margin-bottom:0">
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;font-size:14px;color:#15803D">
         <input type="checkbox" id="tx-has-delivery" onchange="toggleDeliveryFee()" style="width:18px;height:18px;cursor:pointer;accent-color:#16A34A">
@@ -1609,6 +1677,12 @@ function setTxTipo(tipo) {
     const btn = document.getElementById('tx-tipo-btn-'+t);
     if (btn) btn.classList.toggle('active', t===tipo);
   });
+  const saleGroup = document.getElementById('tx-sale-check-group');
+  if (saleGroup) saleGroup.style.display = tipo==='entrada' ? 'block' : 'none';
+  if (tipo!=='entrada') {
+    const cb = document.getElementById('tx-mark-sale');
+    if (cb) cb.checked = false;
+  }
 }
 
 function setTxExtract(ext) {
@@ -1693,12 +1767,15 @@ function saveTransaction() {
     }
   }
   const extractType = (document.getElementById('tx-extract')||{}).value || 'negocio';
+  const markSaleEl = document.getElementById('tx-mark-sale');
+  const markAsSale = !!(markSaleEl && markSaleEl.checked && tipo==='entrada' && txStatus==='realizado');
   const txs = loadData('sabolli_financial_transactions')||[];
-  txs.unshift({ id:nextId(txs), date:document.getElementById('tx-date').value||todayStr(), desc, type:tipo, value, category:document.getElementById('tx-cat').value, accountId: txStatus==='realizado'?(accountId||null):null, extractType, deliveryFee: deliveryFeeAdded||null, status: txStatus });
+  txs.unshift({ id:nextId(txs), date:document.getElementById('tx-date').value||todayStr(), desc, type:tipo, value, category:document.getElementById('tx-cat').value, accountId: txStatus==='realizado'?(accountId||null):null, extractType, deliveryFee: deliveryFeeAdded||null, status: txStatus, markAsSale });
   saveData('sabolli_financial_transactions', txs);
   let msg = txStatus==='realizado' ? 'Lançamento salvo!' : (txStatus==='a_receber' ? 'A Receber salvo!' : 'A Pagar salvo!');
   if (accName) msg += ` · ${accName} atualizada`;
   if (deliveryFeeAdded > 0) msg += ` · Taxa +${fmt(deliveryFeeAdded)}`;
+  if (markAsSale) msg += ' · 🏷️ Somado às Vendas Diárias';
   toast(msg);
   navigateTo('transactions');
 }
@@ -1732,6 +1809,7 @@ function txStatusBadge(t) {
 function txItemHtml(t, showDelete) {
   const accLabel = getAccountLabel(t.accountId);
   const isPending = t.status==='a_receber'||t.status==='a_pagar';
+  const canBeSale = t.type==='entrada' && !isPending;
   const accTag = isPending
     ? txStatusBadge(t)
     : t.accountId
@@ -1739,17 +1817,35 @@ function txItemHtml(t, showDelete) {
       : `<span style="color:#B45309;font-size:10px;font-weight:600;background:#FFFBEB;padding:1px 5px;border-radius:4px">⚠ sem conta</span>`;
   const icoWrapBg = t.status==='a_receber'?'#FFFBEB':t.status==='a_pagar'?'#FEF2F2':(t.type==='entrada'?'#F0FDF4':'#FEF2F2');
   const ico = t.status==='a_receber'?'⏳':t.status==='a_pagar'?'⚠️':(t.type==='entrada'?'📈':'📤');
-  return `<div class="tx-item" style="${isPending?'opacity:0.85;border-left:3px solid '+(t.status==='a_receber'?'#F59E0B':'#EF4444')+';padding-left:10px':''}">
+  const saleTag = canBeSale
+    ? `<span onclick="event.stopPropagation();toggleTxSale(${t.id})" title="${t.markAsSale?'Clique para remover das Vendas Diárias':'Clique para somar às Vendas Diárias'}" style="cursor:pointer;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;border:1px solid ${t.markAsSale?'#16A34A':'#CBD5E1'};background:${t.markAsSale?'#DCFCE7':'#F1F5F9'};color:${t.markAsSale?'#15803D':'#64748B'}">${t.markAsSale?'✅ Venda do dia':'🏷️ Marcar venda'}</span>`
+    : '';
+  const itemStyle = `${isPending?'opacity:0.85;border-left:3px solid '+(t.status==='a_receber'?'#F59E0B':'#EF4444')+';padding-left:10px;':''}${canBeSale?'cursor:pointer;':''}`;
+  return `<div class="tx-item"${canBeSale?` onclick="toggleTxSale(${t.id})"`:''} style="${itemStyle}">
     <div class="tx-ico-wrap" style="background:${icoWrapBg}">${ico}</div>
     <div class="tx-info" style="flex:1">
       <div class="tx-desc">${t.desc}</div>
-      <div class="tx-date" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">${fmtDate(t.date)} · ${t.category||''} ${accTag}</div>
+      <div class="tx-date" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">${fmtDate(t.date)} · ${t.category||''} ${accTag} ${saleTag}</div>
     </div>
     <div style="display:flex;align-items:center;gap:6px">
       <div class="tx-amount ${t.type==='entrada'?'inc':'exp'}">${t.type==='entrada'?'+':'-'}${fmt(t.value)}</div>
-      ${showDelete?`<button class="btn-danger" onclick="deleteTxExtract(${t.id})" style="padding:4px 8px">🗑</button>`:''}
+      ${showDelete?`<button onclick="event.stopPropagation();deleteTxExtract(${t.id})" class="btn-danger" style="padding:4px 8px">🗑</button>`:''}
     </div>
   </div>`;
+}
+
+function toggleTxSale(id) {
+  const txs = loadData('sabolli_financial_transactions')||[];
+  const tx = txs.find(t=>t.id===id);
+  if (!tx) return;
+  if (tx.type !== 'entrada' || (tx.status && tx.status !== 'realizado')) {
+    toast('Apenas entradas realizadas podem virar venda do dia', 'error');
+    return;
+  }
+  tx.markAsSale = !tx.markAsSale;
+  saveData('sabolli_financial_transactions', txs);
+  toast(tx.markAsSale ? `Somado às Vendas Diárias de ${fmtDate(tx.date)}` : 'Removido das Vendas Diárias');
+  navigateTo(currentSection);
 }
 
 function renderExtract(c) {
